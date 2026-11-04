@@ -1,0 +1,74 @@
+# ==============================================================================
+# Environment & Sensitive Credentials
+# ==============================================================================
+.env
+.env.*
+!.env.example
+!.env.testing.example
+*.key
+*.pem
+*.pfx
+*.cert
+*.crt
+auth.json
+
+# ==============================================================================
+# Databases & SQLite
+# ==============================================================================
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.db
+*.sql
+
+# ==============================================================================
+# Dependency Directories
+# ==============================================================================
+/**/vendor/
+/**/node_modules/
+composer.phar
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==============================================================================
+# Laravel & Application Runtime Artifacts
+# ==============================================================================
+*.log
+storage/logs/*
+!storage/logs/.gitignore
+storage/framework/cache/*
+!storage/framework/cache/.gitignore
+storage/framework/sessions/*
+!storage/framework/sessions/.gitignore
+storage/framework/views/*
+!storage/framework/views/.gitignore
+storage/app/*
+!storage/app/.gitignore
+public/storage
+public/hot
+public/build
+
+# ==============================================================================
+# Temporary & Cache Files
+# ==============================================================================
+.phpunit.result.cache
+.phpunit.cache/
+coverage/
+tmp/
+temp/
+*.tmp
+
+# ==============================================================================
+# Operating System & IDE Artifacts
+# ==============================================================================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+.idea/
+.vscode/
+.fleet/
+.nova/
+.zed/
+*.sublime-project
+*.sublime-workspace
