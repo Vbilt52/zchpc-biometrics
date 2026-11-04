@@ -65,11 +65,4 @@ class DeviceErrorInterpreter
             'http_status' => null,
         ];
     }
-
-    private function excerpt(string $message): string
-    {
-        $message = trim(preg_replace('/\s+/', ' ', $message) ?? '');
-
-        return $message === '' ? 'no further detail was returned.' : mb_substr($message, 0, 220);
-    }
 }

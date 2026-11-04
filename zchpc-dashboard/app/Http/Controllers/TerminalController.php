@@ -8,6 +8,7 @@ use App\Models\Terminal;
 use App\Services\EloquentDeviceProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Shaykhnazar\HikvisionIsapi\Client\DeviceManager;
 
@@ -79,13 +80,16 @@ class TerminalController extends Controller
 
         $validated['verify_ssl'] = $request->boolean('verify_ssl');
         $validated['timeout'] = 5;
-        $validated['location'] = null;
-
         if (empty($validated['password'])) {
             unset($validated['password']);
         }
 
-        $terminal->update($validated);
+        $terminal->fill($validated);
+        if ($terminal->isDirty(['ip', 'port', 'username', 'password', 'protocol', 'integration', 'verify_ssl'])) {
+            $terminal->forceFill(['status' => Terminal::STATUS_UNKNOWN, 'last_checked_at' => null, 'last_seen_at' => null, 'last_error' => null, 'consecutive_failures' => 0]);
+            Cache::forget("terminal.{$terminal->id}.online");
+        }
+        $terminal->save();
 
         $this->resetCache();
         Artisan::call('terminals:ping', ['--force' => true, '--device' => $terminal->name]);
@@ -102,7 +106,6 @@ class TerminalController extends Controller
 
         $terminal->delete();
         $this->resetCache();
-        Artisan::call('terminals:ping', ['--force' => true, '--device' => $terminal->name]);
 
         return redirect()->route('terminals.index')->with('success', 'Terminal removed successfully.');
     }

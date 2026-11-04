@@ -72,3 +72,11 @@ ehthumbs.db
 .zed/
 *.sublime-project
 *.sublime-workspace
+
+# SQLite write-ahead and shared-memory files
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
+*.db-wal
+*.db-shm

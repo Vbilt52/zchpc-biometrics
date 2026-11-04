@@ -29,7 +29,7 @@ class AccessOnboardingTest extends TestCase
         return Terminal::create([
             'name' => $name, 'phase' => 'Phase 1', 'ip' => '192.0.2.20', 'port' => 80,
             'username' => 'admin', 'password' => 'test', 'protocol' => 'http', 'timeout' => 5,
-            'verify_ssl' => false, 'status' => $status,
+            'verify_ssl' => false, 'status' => $status, 'last_checked_at' => $status === 'online' ? now() : null,
         ]);
     }
 

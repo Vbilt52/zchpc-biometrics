@@ -256,7 +256,7 @@ class DeviceController extends Controller
 
             return back()->with('success', "Door {$doorNo} on {$terminalName} opened successfully.");
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to open door: '.$e->getMessage());
+            return back()->with('error', 'The terminal did not confirm the open command. Check its connection and door status.');
         }
     }
 
@@ -270,7 +270,7 @@ class DeviceController extends Controller
 
             return back()->with('success', "Door {$doorNo} on {$terminalName} closed successfully.");
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to close door: '.$e->getMessage());
+            return back()->with('error', 'The terminal did not confirm the close command. Check its connection and door status.');
         }
     }
 
@@ -287,7 +287,7 @@ class DeviceController extends Controller
             // An unreachable terminal is an expected device condition, not a
             // server fault, so report it as a service-unavailable response
             // with the same error body the caller already receives.
-            return response()->json(['error' => $e->getMessage()], 503);
+            return response()->json(['error' => 'Door status could not be verified. Check terminal connectivity.'], 503);
         }
     }
 
@@ -345,7 +345,7 @@ class DeviceController extends Controller
         return match ($status) {
             'online' => $terminal->isOnline(),
             'offline' => $terminal->status === Terminal::STATUS_OFFLINE,
-            'connecting' => $terminal->status === Terminal::STATUS_CONNECTING,
+            'connecting' => $terminal->effectiveStatus() === Terminal::STATUS_CONNECTING,
             'error' => $terminal->status === Terminal::STATUS_ERROR,
             'attention' => $terminal->needsAttention($settings),
             default => true,

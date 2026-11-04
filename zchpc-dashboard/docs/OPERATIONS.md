@@ -1,5 +1,9 @@
 # Collection and account tools
 
+The scheduler evaluates device checks every 15 seconds and applies the saved per-device interval. Online status expires when the last check is too old. Dashboard totals use local personnel and collected events across all terminals. Follow the collection coverage link to check for delayed imports.
+
+When deploying the monitoring fixes, reload long-running scheduler and queue processes after active work finishes so they use the updated code and queue reservation settings. The reservation must outlast the refresh job timeout. An interrupted refresh can resume its unfinished checks when the worker retries it.
+
 ## Device monitoring and recovery
 
 See [Device monitoring](DEVICE_MONITORING.md) for the device dashboard, status model, manual/bulk refresh, diagnostics, alerts, audit log, permissions and limitations. The additive migration `2026_10_29_120000_create_device_monitoring_tables.php` was applied locally on 29 October 2026; it does not alter existing terminals, permissions or access records.

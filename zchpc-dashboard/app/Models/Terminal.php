@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 
 class Terminal extends Model
 {
@@ -143,10 +144,14 @@ class Terminal extends Model
     /** True only when an authenticated check has confirmed the device. */
     public function effectiveStatus(): string
     {
+        if ($this->isApiManaged() && Cache::has('device-check-running:'.$this->id)) {
+            return self::STATUS_CONNECTING;
+        }
         if (in_array($this->status, [self::STATUS_ONLINE, self::STATUS_CONNECTING], true)
             && (! $this->last_checked_at || $this->last_checked_at->lt(now()->subSeconds(DeviceMonitorSettings::current()->staleAfterSeconds())))) {
             return 'stale';
         }
+
         return $this->status;
     }
 

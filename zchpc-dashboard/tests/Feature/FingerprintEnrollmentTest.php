@@ -35,7 +35,7 @@ class FingerprintEnrollmentTest extends TestCase
         return Terminal::create([
             'name' => 'Main Entrance', 'phase' => 'Phase 1', 'ip' => '192.0.2.60', 'port' => 80,
             'username' => 'admin', 'password' => 'test', 'protocol' => 'http', 'timeout' => 5,
-            'verify_ssl' => false, 'status' => $status,
+            'verify_ssl' => false, 'status' => $status, 'last_checked_at' => $status === 'online' ? now() : null,
         ]);
     }
 
@@ -203,7 +203,7 @@ class FingerprintEnrollmentTest extends TestCase
 
         // First attempt calls FingerPrint/Search which fails with 400 notSupport
         $client->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrint/Search', Mockery::type('array'))
-            ->once()->andThrow(new \RuntimeException("HTTP request failed: Client error: `POST http://192.168.60.41/ISAPI/AccessControl/FingerPrint/Search?format=json` resulted in a `400 Bad Request` response: {\"statusCode\":4,\"subStatusCode\":\"notSupport\"}"));
+            ->once()->andThrow(new \RuntimeException('HTTP request failed: Client error: `POST http://192.168.60.41/ISAPI/AccessControl/FingerPrint/Search?format=json` resulted in a `400 Bad Request` response: {"statusCode":4,"subStatusCode":"notSupport"}'));
 
         // Fallback calls FingerPrintUpload which succeeds with the slot
         $client->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', Mockery::type('array'))
@@ -237,10 +237,10 @@ class FingerprintEnrollmentTest extends TestCase
 
         $client = Mockery::mock(HikvisionClient::class);
         $client->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrint/Search', Mockery::type('array'))
-            ->once()->andThrow(new \RuntimeException("HTTP request failed: Client error: `POST http://192.168.60.41/ISAPI/AccessControl/FingerPrint/Search?format=json` resulted in a `400 Bad Request` response: {\"statusCode\":4,\"subStatusCode\":\"notSupport\"}"));
+            ->once()->andThrow(new \RuntimeException('HTTP request failed: Client error: `POST http://192.168.60.41/ISAPI/AccessControl/FingerPrint/Search?format=json` resulted in a `400 Bad Request` response: {"statusCode":4,"subStatusCode":"notSupport"}'));
 
         $client->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', Mockery::type('array'))
-            ->once()->andThrow(new \RuntimeException("HTTP request failed: Client error: `POST http://192.168.60.41/ISAPI/AccessControl/FingerPrintUpload?format=json` resulted in a `400 Bad Request` response: {\"statusCode\":6,\"subStatusCode\":\"fingerprintNotLinkEmployeeIdOrCard\"}"));
+            ->once()->andThrow(new \RuntimeException('HTTP request failed: Client error: `POST http://192.168.60.41/ISAPI/AccessControl/FingerPrintUpload?format=json` resulted in a `400 Bad Request` response: {"statusCode":6,"subStatusCode":"fingerprintNotLinkEmployeeIdOrCard"}'));
 
         $factory = Mockery::mock(DeviceClientFactory::class);
         $factory->shouldReceive('forTerminal')->andReturn($client);
@@ -251,5 +251,16 @@ class FingerprintEnrollmentTest extends TestCase
         $slots = $service->fingerprintSlots($terminal, '00232');
 
         $this->assertSame([], $slots);
+    }
+
+    public function test_an_unapproved_existing_identity_cannot_be_reused_for_capture(): void
+    {
+        Queue::fake();
+        $terminal = $this->terminal();
+        $person = $this->person();
+        $this->provisioner($terminal);
+        $this->deviceRecord = ['employeeNo' => $person->employee_no, 'userType' => 'normal', 'Valid' => ['enable' => false]];
+        $this->expectExceptionMessage('Existing identity is not confirmed blocked or locally authorized');
+        app(FingerprintEnrollmentService::class)->start($person, $terminal, 1);
     }
 }

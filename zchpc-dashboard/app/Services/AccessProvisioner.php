@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Personnel;
 use App\Models\Terminal;
 use Carbon\Carbon;
 use Shaykhnazar\HikvisionIsapi\Client\DeviceManager;
@@ -15,7 +16,7 @@ use Shaykhnazar\HikvisionIsapi\Exceptions\HikvisionException;
  * but granting door access before the administrator has chosen doors would
  * violate least privilege. This service therefore creates the identity in a
  * disabled state (no usable access) and verifies the device actually applied
- * that state. It never writes a door plan for the purpose of enrollment.
+ * that state. The blocked user type prevents this identity from granting access.
  */
 class AccessProvisioner
 {
@@ -35,11 +36,12 @@ class AccessProvisioner
         $existing = $this->readPerson($client, $employeeNo);
 
         if ($existing !== null) {
-            $person = \App\Models\Personnel::where('employee_no', $employeeNo)->first();
+            $person = Personnel::where('employee_no', $employeeNo)->first();
             $approved = $person && ! $person->isDraft() && $person->isActive() && $person->terminals()->whereKey($terminal->id)->wherePivot('access_allowed', true)->exists();
             if (($existing['userType'] ?? null) !== 'blackList' && ! $approved) {
                 throw new \RuntimeException('Existing identity is not confirmed blocked or locally authorized. Review access before enrollment.');
             }
+
             return;
         }
 

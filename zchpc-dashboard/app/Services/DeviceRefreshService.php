@@ -141,14 +141,14 @@ class DeviceRefreshService
                 }
 
                 $cancelled = $run->items()
-                    ->where('status', DeviceRefreshItem::STATUS_PENDING)
+                    ->whereIn('status', [DeviceRefreshItem::STATUS_PENDING, DeviceRefreshItem::STATUS_CHECKING])
                     ->update(['status' => DeviceRefreshItem::STATUS_CANCELLED, 'checked_at' => now()]);
 
                 $run->forceFill([
                     'status' => DeviceRefreshRun::STATUS_CANCELLED,
                     'cancelled' => $run->cancelled + $cancelled,
                     'finished_at' => now(),
-                    'message' => "Cancelled. {$cancelled} unchecked device(s) were not contacted.",
+                    'message' => "Cancelled. {$cancelled} unfinished check(s) cancelled. A check already in progress may finish.",
                 ])->save();
             });
 
@@ -157,7 +157,7 @@ class DeviceRefreshService
                 $actor,
                 'refresh_cancelled',
                 'info',
-                "Cancelled refresh run #{$run->id}; {$cancelled} device(s) were not contacted.",
+                "Cancelled refresh run #{$run->id}; {$cancelled} unfinished check(s) cancelled.",
                 ['run_id' => $run->id],
                 $ip,
             );
@@ -173,8 +173,14 @@ class DeviceRefreshService
     public function process(DeviceRefreshRun $run): void
     {
         $lock = Cache::lock('device-refresh-run:'.$run->id, (int) config('devices.refresh_timeout_seconds', 900) + 30);
-        if (! $lock->get()) { return; }
-        try { $this->processLocked($run); } finally { $lock->release(); }
+        if (! $lock->get()) {
+            return;
+        }
+        try {
+            $this->processLocked($run);
+        } finally {
+            $lock->release();
+        }
     }
 
     private function processLocked(DeviceRefreshRun $run): void
@@ -240,7 +246,12 @@ class DeviceRefreshService
                     continue;
                 }
 
-                $item->forceFill(['status' => DeviceRefreshItem::STATUS_CHECKING])->save();
+                $claimed = DeviceRefreshItem::query()->whereKey($item->id)
+                    ->where('status', DeviceRefreshItem::STATUS_PENDING)
+                    ->update(['status' => DeviceRefreshItem::STATUS_CHECKING]);
+                if (! $claimed || $this->isCancelled($run)) {
+                    continue;
+                }
 
                 $result = $this->health->check(
                     $terminal,
@@ -294,11 +305,17 @@ class DeviceRefreshService
         $run->cancelled = (int) ($counts[DeviceRefreshItem::STATUS_CANCELLED] ?? 0);
         $summary = "Checked {$run->completed} of {$run->total} device(s): {$online} online, {$offline} offline, {$errors} with errors";
 
-        $run->forceFill([
+        $finished = DeviceRefreshRun::query()->whereKey($run->id)->active()->update([
+            'completed' => $run->completed,
+            'failed' => $run->failed,
+            'cancelled' => $run->cancelled,
             'status' => DeviceRefreshRun::STATUS_COMPLETED,
             'finished_at' => now(),
             'message' => $summary.'.',
-        ])->save();
+        ]);
+        if (! $finished) {
+            return;
+        }
 
         $this->activity->log(
             null,

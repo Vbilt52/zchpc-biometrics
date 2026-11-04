@@ -6,10 +6,7 @@ use App\Models\DeviceMonitorSettings;
 use App\Models\Terminal;
 use App\Services\DeviceHealthService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Cache;
 use Shaykhnazar\HikvisionIsapi\Client\DeviceManager;
-use Shaykhnazar\HikvisionIsapi\Services\EventService;
-use Shaykhnazar\HikvisionIsapi\Services\PersonService;
 
 class PingTerminalsCommand extends Command
 {

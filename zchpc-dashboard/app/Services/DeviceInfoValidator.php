@@ -11,6 +11,7 @@ class DeviceInfoValidator
             || ! is_string($info['model'] ?? null) || trim($info['model']) === '') {
             throw new \RuntimeException('Unrecognized device information response.');
         }
+
         return array_intersect_key($info, array_flip(['model', 'deviceName', 'deviceType', 'firmwareVersion', 'serialNumber']));
     }
 }

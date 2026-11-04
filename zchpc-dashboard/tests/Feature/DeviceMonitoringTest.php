@@ -807,4 +807,43 @@ class DeviceMonitoringTest extends TestCase
 
         $this->assertStringContainsString("'=cmd|calc", $csv);
     }
+
+    public function test_a_stale_success_does_not_count_as_online(): void
+    {
+        $this->terminal('Stale Entrance', ['status' => 'online', 'last_checked_at' => now()->subHour()]);
+        $this->actingAs($this->admin())->getJson(route('devices.statuses'))
+            ->assertOk()->assertJsonPath('stats.online', 0)->assertJsonPath('devices.0.status', 'stale');
+    }
+
+    public function test_unrecognized_device_response_cannot_confirm_online(): void
+    {
+        $terminal = $this->terminal('Main Entrance');
+        $this->fakeReachability();
+        $this->fakeDevices([$terminal->name => fn () => ['raw' => '<html>Login</html>']]);
+        $this->actingAs($this->admin())->postJson(route('devices.refresh', $terminal))
+            ->assertOk()->assertJsonPath('ok', false)->assertJsonPath('device.status', 'error')->assertDontSee('Login');
+        $this->assertNull($terminal->fresh()->last_seen_at);
+    }
+
+    public function test_viewer_cannot_call_legacy_device_mutations(): void
+    {
+        $terminal = $this->terminal('Main Entrance');
+        $this->actingAs(User::factory()->create(['role' => User::ROLE_VIEWER]));
+        $this->post(route('devices.door.open', [$terminal->name, 1]))->assertForbidden();
+        $this->put(route('terminals.update', $terminal))->assertForbidden();
+        $this->post(route('personnel.sync.all'))->assertForbidden();
+        $this->post(route('super-fingerprints.enroll'))->assertForbidden();
+    }
+
+    public function test_interrupted_refresh_resumes_the_unfinished_item(): void
+    {
+        $terminal = $this->terminal('Main Entrance');
+        $this->fakeReachability(false);
+        $run = DeviceRefreshRun::create(['scope' => 'all', 'status' => 'running', 'total' => 1, 'started_at' => now()]);
+        $run->items()->create(['terminal_id' => $terminal->id, 'terminal_name' => $terminal->name, 'status' => 'checking']);
+        app(DeviceRefreshService::class)->process($run);
+        $this->assertSame('completed', $run->fresh()->status);
+        $this->assertSame(1, $run->fresh()->completed);
+        $this->assertSame('offline', $run->items()->sole()->status);
+    }
 }

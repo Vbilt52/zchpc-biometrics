@@ -8,8 +8,6 @@ use App\Models\Personnel;
 use App\Models\Terminal;
 use Illuminate\Support\Facades\Cache;
 use Shaykhnazar\HikvisionIsapi\Client\DeviceManager;
-use Shaykhnazar\HikvisionIsapi\Services\EventService;
-use Shaykhnazar\HikvisionIsapi\Services\PersonService;
 
 class DashboardController extends Controller
 {
@@ -34,7 +32,9 @@ class DashboardController extends Controller
             $chartDays[] = ['day' => $day->format('D d M'), 'count' => $count];
         }
         $chartMax = max(5, (int) (ceil(max(array_column($chartDays, 'count')) / 5) * 5));
-        foreach ($chartDays as &$bar) { $bar['height'] = $bar['count'] / $chartMax * 100; }
+        foreach ($chartDays as &$bar) {
+            $bar['height'] = $bar['count'] / $chartMax * 100;
+        }
         unset($bar);
         $eventsTodayCount = $chartDays[6]['count'];
         $recentEvents = AccessEvent::with(['terminal', 'personnel'])->latest('occurred_at')->limit(5)->get()->map(fn ($event) => [

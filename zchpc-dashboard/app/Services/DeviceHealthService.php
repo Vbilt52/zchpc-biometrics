@@ -69,6 +69,7 @@ class DeviceHealthService
         }
 
         try {
+            Cache::put('device-check-running:'.$terminal->id, true, 60);
             $terminal->refresh();
             $previousStatus = $terminal->status;
             $attempts = max(1, $attempts ?? 1);
@@ -144,6 +145,7 @@ class DeviceHealthService
                 $outcome['info'],
             );
         } finally {
+            Cache::forget('device-check-running:'.$terminal->id);
             $lock->release();
         }
     }
