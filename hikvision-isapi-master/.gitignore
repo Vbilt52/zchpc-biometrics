@@ -1,0 +1,13 @@
+/vendor/
+/node_modules/
+/.idea/
+/.vscode/
+/.phpunit.cache/
+/coverage/
+.env
+.env.backup
+.env.testing
+.phpunit.result.cache
+.DS_Store
+Thumbs.db
+/doc_files/

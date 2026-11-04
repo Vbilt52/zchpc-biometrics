@@ -1,0 +1,20 @@
+# Existing feature improvements
+
+Reviewed 29 October 2026. The table records the original recommendations. Follow-up implementation now includes per-device assignments, durable permission revocation, editable dates, failed-attempt filtering and deletion that retains the local identity on device failure. See [Device access](DEVICE_ACCESS.md) for delivered behavior and hardware verification limits. Role-based administration, dashboard totals and the other recommendations below remain outstanding.
+
+| Priority | Existing feature | Observed gap | Recommended improvement |
+| --- | --- | --- | --- |
+| 1 | Personnel removal | `PersonnelController::destroy()` deletes the local record even when a terminal refuses or cannot receive the deletion. Pending sync retries support upserts, not durable revocations. | Archive the person, retain their employee/device identifiers, retry revocation until each terminal confirms, and show unresolved access prominently. |
+| 1 | Permissions and door control | Authenticated routes have no role/policy restrictions for door commands, exports, personnel changes, or super-fingerprint promotion. | Add Admin, Security, HR, and read-only roles, enforced on the server. Record operator, target, time, and result for sensitive actions. |
+| 2 | Dashboard | Personnel/event metrics come from the first online terminal. Expired caches default to zero. The dashboard can show zero registered people despite locally stored personnel. | Count personnel locally; aggregate collected events across terminals; distinguish actual zero from unavailable/stale data; show last successful collection and clickable totals. |
+| 2 | Event interpretation | Dashboard badges label minor codes 1 and 75 as fingerprint, while the event model maps those to card and face. | Share one event decoder across dashboard, monitoring, attendance, and downloads. Verify device-specific codes against real payloads and show unfamiliar codes as unknown. |
+| 2 | Attendance register | Internal-room and entrance scans can both create daily register rows. Anonymous exit buttons cannot identify a person's departure. | Configure which terminals count as attendance entrances; show collection gaps directly in the register; add review/approval of manual exits. Keep unknown logout explicit. Accurate automatic logout requires an identified exit action or reader. |
+| 3 | Monitoring and collection | Automatic collection exists, but the development scheduler is not a persistent service. Old history requires manual backfill; malformed timestamps can disappear from date-filtered views. | Install scheduler startup/restart supervision, add a resumable historical import with progress, and provide a review queue for invalid timestamps and unmatched employee IDs. Alert on prolonged outages or missing coverage. |
+| 3 | Personnel downloads | Export methods load all people and ignore list filters; CSV writes names/IDs directly. Attendance CSV already has stronger safeguards. | Make downloads match selected filters, preserve leading-zero employee IDs, protect spreadsheet text fields, and stream large files. Add native XLSX with monthly attendance sheets. |
+| 3 | Data recovery | Account recovery is implemented, but documented operational backup/restore remains incomplete. | Schedule protected database backups, keep the application encryption key safely recoverable, test a full restore, and show the latest successful backup date. |
+
+Start with durable personnel revocation and permission controls, then correct dashboard totals and shared event labels. These improve existing operations before adding new modules.
+
+## Full logo
+
+The login/setup brand and shared dashboard sidebar now use the full official logo from `https://hpc.ac.zw/assets/zchpc-logo-DkegBPYv.png`, saved as `public/images/zchpc-logo-full.png`. It includes the emblem, ZCHPC wordmark, and tagline. A blue background keeps the white lettering visible; CSS removes only the asset's empty outer margins from view. Actual personnel names and records were not changed.

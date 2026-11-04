@@ -1,0 +1,73 @@
+{
+  "name": "zchpc/access-control",
+  "description": "ZCHPC Access Control Suite — Laravel package for Hikvision ISAPI Face Recognition Terminals and access control device integration, customised for the Zimbabwe Centre for High Performance Computing.",
+  "type": "library",
+  "license": "MIT",
+  "keywords": ["zchpc", "zimbabwe", "hpc", "laravel", "hikvision", "isapi", "face-recognition", "access-control", "supercomputing"],
+  "authors": [
+    {
+      "name": "ZCHPC — Zimbabwe Centre for High Performance Computing",
+      "email": "support@hpc.ac.zw",
+      "homepage": "https://hpc.ac.zw",
+      "role": "Maintainer"
+    }
+  ],
+  "require": {
+    "php": "^8.2",
+    "illuminate/support": "^12.0",
+    "guzzlehttp/guzzle": "^7.8",
+    "ext-curl": "*",
+    "ext-json": "*",
+    "ext-simplexml": "*",
+    "ext-libxml": "*"
+  },
+  "require-dev": {
+    "orchestra/testbench": "^10.0",
+    "phpunit/phpunit": "^10.5|^11.0",
+    "mockery/mockery": "^1.6",
+    "laravel/pint": "^1.18",
+    "larastan/larastan": "^3.0",
+    "phpstan/phpstan-mockery": "^2.0"
+  },
+  "bin": [
+    "bin/zchpc-probe"
+  ],
+  "autoload": {
+    "psr-4": {
+      "Shaykhnazar\\HikvisionIsapi\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Shaykhnazar\\HikvisionIsapi\\Tests\\": "tests/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Shaykhnazar\\HikvisionIsapi\\HikvisionIsapiServiceProvider"
+      ],
+      "aliases": {
+        "ZchpcAccess": "Shaykhnazar\\HikvisionIsapi\\Facades\\HikvisionIsapi",
+        "ZchpcDevices": "Shaykhnazar\\HikvisionIsapi\\Facades\\Hikvision",
+        "HikvisionIsapi": "Shaykhnazar\\HikvisionIsapi\\Facades\\HikvisionIsapi"
+      }
+    }
+  },
+  "scripts": {
+    "lint": "pint --test",
+    "fix": "pint",
+    "analyse": "phpstan analyse",
+    "test": "phpunit",
+    "ci": [
+      "@lint",
+      "@analyse",
+      "@test"
+    ]
+  },
+  "config": {
+    "sort-packages": true
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}

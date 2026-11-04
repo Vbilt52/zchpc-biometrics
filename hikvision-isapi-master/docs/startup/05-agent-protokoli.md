@@ -1,0 +1,217 @@
+# Edge agent ↔ bulut protokoli
+
+Sana: 2026-08-25
+Holat: v0 loyiha — Sprint 1 da real qurilmada sinaladi
+Bog'liq: `02-arxitektura.md` §4-6
+
+Bu hujjat agent va bulut o'rtasidagi shartnomani belgilaydi. Uning maqsadi — agent repo'sini shu hujjatdan boshlab yozish mumkin bo'lishi.
+
+---
+
+## 1. Asosiy cheklovlar
+
+1. **Faqat outbound.** Agent HTTPS bo'yicha bulutga o'zi murojaat qiladi. Mijoz tarmog'ida internetdan kiradigan hech qanday port ochilmaydi.
+2. **Qurilma paroli tarmoqdan chiqmaydi.** Bulut faqat "parol o'rnatildi/o'rnatilmadi" holatini biladi.
+3. **Yuz rasmi bulutda saqlanmaydi.** Vazifa bilan bir marta uzatiladi, agent qurilmaga yozadi, bulut nusxani o'chiradi.
+4. **At-least-once + dedup.** Hech narsa "aniq bir marta" yetkazilishiga tayanmaydi.
+5. **Agent holatsiz emas.** Internet uzilganda voqealarni lokal SQLite'ga yozadi va ulanish tiklanganda yuboradi.
+
+## 2. Autentifikatsiya
+
+Ro'yxatdan o'tish (bir marta):
+
+```
+POST /api/agent/v1/enroll
+{ "enroll_token": "...", "agent_version": "0.1.0", "hostname": "kassa-pc" }
+→ { "agent_id": "agt_...", "agent_secret": "...", "branch_id": "brn_..." }
+```
+
+`enroll_token` bulut panelida filial uchun generatsiya qilinadi, 24 soat amal qiladi, bir marta ishlatiladi.
+
+Keyingi barcha so'rovlarda:
+
+```
+X-Agent-Id: agt_...
+X-Timestamp: 1756130000            # unix, ±300 soniya oynasi
+X-Signature: hex(hmac_sha256(agent_secret, "{method}\n{path}\n{timestamp}\n{sha256(body)}"))
+```
+
+Bulut: `agent_id` topilmasa yoki imzo mos kelmasa → `401`. Timestamp oynadan tashqarida → `401` (replay himoyasi).
+
+`agent_secret` 90 kunda aylantiriladi: bulut heartbeat javobida yangi sirni beradi, agent uni saqlaydi va keyingi so'rovdan boshlab ishlatadi.
+
+> **Tuzatish (2026-08-25):** yo'llar `/agent/v1/...` dan `/api/agent/v1/...` ga
+> o'zgartirildi. Bulut Laravel'da yozilgan va agent API'sini `api` prefiksi
+> ostida beradi. Prefiks kosmetik emas — imzolanadigan kanonik satr so'rov
+> yo'lini o'z ichiga oladi, ya'ni nomuvofiqlik redirect emas, umuman
+> autentifikatsiyadan o'tolmaydigan 404 bo'ladi. Buni faqat agent va bulutni
+> birinchi marta haqiqiy ulaganda topdik: ikkala tomonning testlari ham
+> bir-birini mock qilgani uchun jim turgan edi.
+
+## 3. Endpointlar
+
+### 3.1. Heartbeat — har 30 soniyada
+
+```
+POST /api/agent/v1/heartbeat
+{
+  "agent_version": "0.1.0",
+  "devices": [
+    { "device_id": "dev_...", "status": "online",  "checked_at": "2026-08-25T14:00:00+05:00" },
+    { "device_id": "dev_...", "status": "error", "error": "auth_failed" }
+  ]
+}
+→ { "server_time": "...", "agent_upgrade": null, "secret_rotation": null,
+    "devices_registered": 0 }
+```
+
+Bulut 90 soniya heartbeat kelmasa agentni `offline` deb belgilaydi va HR ga Telegram signal yuboradi.
+
+Qurilma holatlari: `online` | `offline` | `error`. `error` — qurilma javob beradi, lekin ishlay olmaydi (masalan parol noto'g'ri).
+
+**Heartbeat terminalni ro'yxatdan ham o'tkazadi.** Bulut ko'rmagan `device_id`
+kelsa, u o'sha agentning tashkiloti va filialida yaratiladi. Aks holda terminallar
+ro'yxatini faqat qo'lda to'ldirish mumkin bo'lardi — bu esa LAN'da haqiqatan turgan
+narsa emas, tilak ro'yxati. Qaysi terminallar borligini operator emas, agent biladi.
+
+`devices_registered` — shu heartbeat nechta yangi terminal yaratganini aytadi. Jim
+o'tgan heartbeat'ni taxmin qilish o'rniga ko'rish uchun.
+
+Bir tashkilot ichida boshqa agent egallagan `device_id` **tegilmaydi**. Ikki filial
+bir xil terminal id ishlatishi — o'rnatishdagi xato, va terminalni jimgina bir
+filialdan boshqasiga ko'chirish uning o'tishlarini noto'g'ri tabelga tushirardi.
+
+`device_id` **tashkilot ichida** unique, butun o'rnatma bo'yicha emas. Dedup
+kalitidan farqli o'laroq, bu yerda to'qnashuv kutiladigan hol: id ni agentni
+o'rnatgan odam yozadi va ikkinchi mijoz ham `dev_kirish` deb nomlaydi.
+
+### 3.2. Vazifalarni olish — long-poll
+
+```
+GET /api/agent/v1/jobs?wait=30
+→ { "jobs": [ { ... }, { ... } ] }
+```
+
+Bulut so'rovni 30 soniyagacha ushlab turadi. Vazifa paydo bo'lsa darhol qaytaradi, aks holda bo'sh ro'yxat. Agent javobni olgach darhol yangi so'rov yuboradi.
+
+Bir martada ko'pi bilan 20 vazifa. Bulut qaytargan vazifalarni `dispatched` deb belgilaydi va 5 daqiqa davomida qayta bermaydi (visibility timeout); natija kelmasa vazifa yana navbatga qaytadi.
+
+### 3.3. Natijani qaytarish
+
+```
+POST /api/agent/v1/jobs/{job_id}/result
+{
+  "idempotency_key": "sha256(...)",
+  "status": "succeeded",              # succeeded | failed | unsupported
+  "attempted_at": "...",
+  "duration_ms": 412,
+  "error": null                       # { "kind": "...", "message": "...", "retryable": false }
+}
+→ 200 { "accepted": true }
+```
+
+Bir xil `idempotency_key` bilan takroriy natija `200` qaytaradi, lekin holatni o'zgartirmaydi.
+
+### 3.4. Voqealarni yuborish — to'plam bilan
+
+```
+POST /api/agent/v1/events
+{
+  "events": [
+    {
+      "dedup_key": "sha256(device_id|event_time|employee_no|event_type|serial_no)",
+      "device_id": "dev_...",
+      "event_time": "2026-08-25T08:59:41+05:00",
+      "employee_no": "1042",
+      "event_type": "access_granted",
+      "credential": "face",
+      "source": "webhook"             # webhook | backfill
+    }
+  ]
+}
+→ { "accepted": 118, "duplicates": 12 }
+```
+
+Bir so'rovda ko'pi bilan 500 voqea. `dedup_key` bulutda unique index — takror kelgani jimgina tashlanadi.
+
+## 4. Vazifa turlari
+
+> **Tuzatish (2026-08-26):** `person.*` va `card.*` alohida turlari bitta
+> `employee.sync` bilan almashtirildi. Sabab quyida.
+
+| Tur | Yuk | Holat |
+|---|---|---|
+| `employee.sync` | device_id, employee_no, full_name, enabled, card_no | ✅ ishlaydi |
+| `face.upsert` | employee_no, image_base64 | Rejada; kesish ro'yxatida birinchi |
+| `device.probe` | — | Rejada; real terminal kerak |
+| `device.configure_webhook` | agent_url | Rejada; real terminal kerak |
+
+**Nega bitta vazifa, alohida `person` va `card` emas.** Bulut har bir (xodim,
+qurilma) juftligi uchun bitta `applied_hash` saqlaydi. Bo'lingan vazifalar qisman
+muvaffaqiyat holatini keltirib chiqaradi — odam qo'llandi, karta yo'q — va buni
+bitta hash ifodalay olmaydi. Buni boshqa joyda kuzatish esa aynan shu
+desired-state modeli qochadigan "niyatlar navbati"ni qaytadan yaratardi. Bitta
+vazifa, bitta natija, ko'chiriladigan bitta hash.
+
+`employee.sync` ichida tartib: **person → card**. Kartani terminal hech qachon
+eshitmagan odamga biriktirib bo'lmaydi. `card_no` `null` bo'lsa, qurilmadagi
+karta o'chiriladi — bekor qilingan karta eshikda qolsa, u hamon ochadi.
+
+Agent bitta qurilma uchun vazifalarni **ketma-ket** bajaradi (terminal parallel
+so'rovlarda beqaror), turli qurilmalarni parallel.
+
+## 5. Xatolar va qayta urinish
+
+Agent xatoni SDK'ning exception ierarxiyasidan oladi (`HikvisionException::isRetryable()`):
+
+| Xato | Retryable | Agent nima qiladi |
+|---|---|---|
+| `DeviceUnreachableException` | ha | Xabar qilinmaydi; bulut vazifani qaytadan beradi (pastga qarang) |
+| `DeviceBusyException` | ha | Xuddi shunday |
+| `AuthenticationException` | yo'q | Darhol `failed`, qurilma `error` holatiga o'tadi, HR ga signal |
+| Boshqa `HikvisionException` | yo'q | `failed`, xato matni bilan |
+
+> **Tuzatish (2026-08-26):** agentda joyida backoff (5s, 15s, 60s, 300s)
+> qilinmaydi. Agent bir oqimli: tick ichida besh daqiqa uxlash uni terminal
+> callback'larini qabul qilishdan to'xtatadi, va karta yozuvini qayta urinish
+> uchun haqiqiy o'tishni yo'qotish — noto'g'ri almashuv. Buning o'rniga qayta
+> uriniladigan xato **umuman xabar qilinmaydi**: bulutning visibility oynasi
+> vazifani navbatga qaytaradi, va bulut allaqachon sanayotgan `attempts` qachon
+> to'xtashni hal qiladi. Backoff — o'sha visibility oynasi.
+
+Bulut tomonida: `failed` vazifa ekranda sababi bilan ko'rinadi va qo'lda qayta urinish tugmasi bo'ladi. Avtomatik cheksiz qayta urinish yo'q — bu qurilmani bo'g'adi.
+
+Sabab ekranga **tarjima qilib** chiqariladi. Agentning xom matni Guzzle
+istisnosi bo'lib, terminalning LAN manzilini o'z ichiga oladi; ekran esa nima
+qilish kerakligini ko'rsatadi ("Terminal parolni qabul qilmadi. Qurilma parolini
+tekshiring."). Xom matn vazifa qatorida qoladi — debug qilayotgan odam o'sha
+yerga qaraydi.
+
+## 6. Voqealar oqimi — uch qatlam
+
+1. **Real-time.** Qurilma → agentning lokal HTTP listeneri (`:9080`) → bufer → bulut. Kechikish ~1-3 soniya.
+2. **Backfill.** Har 10 daqiqada har bir qurilma uchun oxirgi 30 daqiqa qayta o'qiladi:
+   `EventService::between($now->modify('-30 minutes'), $now)` — SDK'dagi iterator. `source: "backfill"` bilan yuboriladi, dedup ortiqchasini tashlaydi.
+3. **Kunlik audit.** Har kecha oxirgi 24 soat qayta o'qiladi va voqealar soni bulutdagi son bilan solishtiriladi. Farq bo'lsa — HR ga emas, **bizga** signal: bu mahsulot nosozligi.
+
+Oynalarning ustma-ust tushishi (30 daqiqalik oyna har 10 daqiqada) ataylab: kechikkan yozuvlar va soat siljishi uchun zaxira.
+
+## 7. Agentning lokal holati
+
+SQLite, bitta fayl:
+- `outbox_events` — bulutga yuborilmagan voqealar
+- `job_results` — yuborilmagan natijalar
+- `devices` — qurilma parollari (shifrlangan), oxirgi holat
+- `config` — agent_id, secret, bulut manzili
+
+Bufer chegarasi: 100 000 voqea yoki 7 kun. Chegaradan oshsa eng eskilari o'chiriladi va bu hodisa bulutga xabar qilinadi.
+
+## 8. Hali hal qilinmagan savollar
+
+Bular Sprint 1 da real qurilmada aniqlanadi:
+
+1. `responseStatusStrg` ning aniq qiymatlari (`OK` / `MORE` / `NO MATCH`) — model va firmware bo'yicha farq qiladimi?
+2. `AcsEventTotalNum` javobining aniq strukturasi (`04-paket-mustahkamlash.md` B2).
+3. Qurilma sig'imi qaysi maydonda qaytadi va `subStatusCode` qiymatlari qanday.
+4. Qurilma webhook'ni HTTP (HTTPS emas) bo'yicha lokal manzilga yubora oladimi va autentifikatsiya qo'llab-quvvatlaydimi.
+5. Bir vaqtda nechta so'rovni ko'taradi — batch o'lchami shunga qarab belgilanadi.

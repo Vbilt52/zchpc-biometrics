@@ -1,0 +1,215 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/*
+ * ZCHPC Access Control Suite — Device Probe
+ * Zimbabwe Centre for High Performance Computing | https://hpc.ac.zw
+ * Accelerating innovation through Supercomputing
+ *
+ * Command-line front for DeviceProbe: arguments in, a JSON report out.
+ *
+ * The asking lives in src/Probe/DeviceProbe.php, where it can be tested. What
+ * is here is the part that cannot be — reading a password without putting it
+ * somewhere it can be read back, and writing a file.
+ *
+ *     ZCHPC_DEVICE_PASSWORD='...' php bin/zchpc-probe --host=192.168.1.100
+ *
+ *     php bin/zchpc-probe --host=10.0.0.5 --port=443 --protocol=https \
+ *         --user=admin --out=zchpc-probe.json
+ */
+
+use Shaykhnazar\HikvisionIsapi\Authentication\DigestAuthenticator;
+use Shaykhnazar\HikvisionIsapi\Client\HikvisionClient;
+use Shaykhnazar\HikvisionIsapi\Client\HttpClient;
+use Shaykhnazar\HikvisionIsapi\Probe\DeviceProbe;
+
+foreach ([__DIR__.'/../vendor/autoload.php', __DIR__.'/../../../autoload.php'] as $autoload) {
+    if (file_exists($autoload)) {
+        require $autoload;
+        break;
+    }
+}
+
+if (! class_exists(DeviceProbe::class)) {
+    fwrite(STDERR, "Composer autoloader not found. Run `composer install` first.\n");
+    exit(1);
+}
+
+/**
+ * @return array<string, string>|null
+ */
+$parseArguments = static function (array $argv) use (&$usage): ?array {
+    $options = [
+        'host' => '',
+        'port' => '80',
+        'user' => 'admin',
+        'protocol' => 'http',
+        'out' => 'zchpc-probe.json',
+    ];
+
+    foreach (array_slice($argv, 1) as $argument) {
+        if ($argument === '--help' || $argument === '-h') {
+            $usage();
+
+            return null;
+        }
+
+        if (preg_match('/^--([a-z]+)=(.*)$/', $argument, $matches) !== 1
+            || ! array_key_exists($matches[1], $options)) {
+            fwrite(STDERR, "Unrecognised argument: {$argument}\n\n");
+            $usage();
+
+            return null;
+        }
+
+        $options[$matches[1]] = $matches[2];
+    }
+
+    if ($options['host'] === '') {
+        fwrite(STDERR, "--host is required.\n\n");
+        $usage();
+
+        return null;
+    }
+
+    return $options;
+};
+
+/*
+ * Get the password from anywhere except the command line.
+ *
+ * Arguments are readable by every user on the machine through `ps`, and the
+ * shell writes them to history. A device password is the one credential this
+ * whole product is built to keep off networks it does not control, and a
+ * support instruction that leaks it in the act of collecting diagnostics would
+ * be a poor way to lose it.
+ */
+$resolvePassword = static function (): ?string {
+    // Accept both ZCHPC_DEVICE_PASSWORD (preferred) and legacy HIKVISION_PASSWORD
+    $fromEnvironment = getenv('ZCHPC_DEVICE_PASSWORD') ?: getenv('HIKVISION_PASSWORD');
+
+    if (is_string($fromEnvironment) && $fromEnvironment !== '') {
+        return $fromEnvironment;
+    }
+
+    if (! stream_isatty(STDIN)) {
+        return null;
+    }
+
+    fwrite(STDERR, 'Device password: ');
+    shell_exec('stty -echo 2>/dev/null');
+    $typed = fgets(STDIN);
+    shell_exec('stty echo 2>/dev/null');
+    fwrite(STDERR, "\n");
+
+    return is_string($typed) && trim($typed) !== '' ? trim($typed) : null;
+};
+
+$buildClient = static function (array $options, #[\SensitiveParameter] string $password): HikvisionClient {
+    return new HikvisionClient(
+        new HttpClient,
+        new DigestAuthenticator,
+        [
+            'default' => 'probe',
+            'format' => 'json',
+            'devices' => [
+                'probe' => [
+                    'ip' => $options['host'],
+                    'port' => $options['port'],
+                    'username' => $options['user'],
+                    'password' => $password,
+                    'protocol' => $options['protocol'],
+                    'timeout' => 15,
+                    'verify_ssl' => false,
+                ],
+            ],
+        ],
+    );
+};
+
+$usage = static function (): void {
+    fwrite(STDERR, <<<'TEXT'
+    ╔══════════════════════════════════════════════════════════════════╗
+    ║  ZCHPC Access Control Suite — Device Probe                      ║
+    ║  Zimbabwe Centre for High Performance Computing | hpc.ac.zw     ║
+    ║  Accelerating innovation through Supercomputing                  ║
+    ╚══════════════════════════════════════════════════════════════════╝
+
+    Ask a ZCHPC-managed access control terminal what it actually does.
+
+    Read-only: nothing on the device changes. The report holds the device's
+    own identity and behaviour — no employee names, cards or numbers.
+
+      ZCHPC_DEVICE_PASSWORD='...' php bin/zchpc-probe --host=192.168.1.100
+
+      --host=      device address                       (required)
+      --port=      default 80
+      --user=      default admin
+      --protocol=  http or https, default http
+      --out=       where to write, default zchpc-probe.json
+
+    The password comes from ZCHPC_DEVICE_PASSWORD (or HIKVISION_PASSWORD for
+    backward compatibility) or the prompt, never from an argument: arguments
+    are visible in `ps` and land in shell history.
+
+    TEXT);
+};
+
+$options = $parseArguments($argv);
+
+if ($options === null) {
+    exit(1);
+}
+
+$password = $resolvePassword();
+
+if ($password === null) {
+    fwrite(STDERR, "No password given. Set ZCHPC_DEVICE_PASSWORD or run this from a terminal.\n");
+    exit(1);
+}
+
+fwrite(STDOUT, "\n");
+fwrite(STDOUT, "  ╔══════════════════════════════════════════════════════════════════╗\n");
+fwrite(STDOUT, "  ║  ZCHPC Access Control Suite — Device Probe                      ║\n");
+fwrite(STDOUT, "  ║  Zimbabwe Centre for High Performance Computing | hpc.ac.zw     ║\n");
+fwrite(STDOUT, "  ╚══════════════════════════════════════════════════════════════════╝\n");
+fwrite(STDOUT, "\n");
+fwrite(STDOUT, "Probing {$options['protocol']}://{$options['host']}:{$options['port']} as {$options['user']}\n");
+fwrite(STDOUT, str_repeat('-', 66)."\n");
+
+$report = (new DeviceProbe(
+    client: $buildClient($options, $password),
+    // A second client with a deliberately wrong password, built only when the
+    // credential probe runs, so the wrong password never sits in a variable
+    // longer than that one call needs it to.
+    wrongPasswordClient: static fn (): HikvisionClient => $buildClient($options, $password.'-probe-wrong'),
+    progress: static fn (string $line): int|false => fwrite(STDOUT, $line."\n"),
+))->run();
+
+// The address and the username are deliberately not in the report: this file
+// gets emailed, and neither is needed to interpret a single answer in it.
+$report['target'] = ['protocol' => $options['protocol']];
+$report['generated_by'] = 'ZCHPC Access Control Suite — zchpc-probe';
+$report['zchpc'] = ['website' => 'https://hpc.ac.zw', 'suite' => 'ZCHPC Access Control Suite'];
+
+$json = json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+if ($json === false || file_put_contents($options['out'], $json."\n") === false) {
+    fwrite(STDERR, "Could not write {$options['out']}\n");
+    exit(1);
+}
+
+fwrite(STDOUT, "\n".str_repeat('-', 66)."\n");
+fwrite(STDOUT, "Written to {$options['out']}\n\n");
+fwrite(STDOUT, "Read it before sending it anywhere.\n\n");
+fwrite(STDOUT, "  In it:     the device's own identity (model, firmware, serial), what it\n");
+fwrite(STDOUT, "             says it can do, how it words each refusal, and row counts.\n");
+fwrite(STDOUT, "  Not in it: any employee's name, card or number; the device password;\n");
+fwrite(STDOUT, "             the address you probed.\n");
+fwrite(STDOUT, "\n");
+fwrite(STDOUT, "  ZCHPC Access Control Suite | https://hpc.ac.zw\n");
+fwrite(STDOUT, "  Accelerating innovation through Supercomputing\n\n");
+
+exit(0);

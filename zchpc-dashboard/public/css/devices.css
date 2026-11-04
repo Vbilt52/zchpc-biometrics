@@ -1,0 +1,406 @@
+/* Device management dashboard — uses the existing ZCHPC tokens. */
+
+.device-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+}
+
+.device-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.device-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.device-stat {
+    background: var(--zchpc-surface);
+    border: 1px solid var(--zchpc-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 0.9rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.device-stat .icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+}
+
+.device-stat .icon.primary { background: rgba(0, 74, 134, 0.1); color: var(--zchpc-primary); }
+.device-stat .icon.success { background: rgba(16, 185, 129, 0.12); color: var(--success); }
+.device-stat .icon.danger { background: rgba(239, 68, 68, 0.12); color: var(--danger); }
+.device-stat .icon.warning { background: rgba(245, 158, 11, 0.14); color: #b45309; }
+.device-stat .icon.muted { background: rgba(100, 116, 139, 0.12); color: #475569; }
+
+.device-stat .value {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--zchpc-secondary);
+}
+
+.device-stat .label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--zchpc-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.device-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid var(--zchpc-border);
+    background: var(--zchpc-surface);
+    color: var(--zchpc-text);
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.filter-pill.active {
+    background: var(--zchpc-primary);
+    border-color: var(--zchpc-primary);
+    color: #fff;
+}
+
+.filter-pill .count {
+    background: rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    padding: 0 0.35rem;
+    font-size: 0.72rem;
+}
+
+.filter-pill:not(.active) .count {
+    background: var(--zchpc-bg);
+    color: var(--zchpc-text-muted);
+}
+
+.device-search {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-left: auto;
+}
+
+.device-search input[type="search"],
+.device-search select,
+.device-settings input[type="number"] {
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--zchpc-border);
+    border-radius: var(--radius-md);
+    font-size: 0.85rem;
+    background: var(--zchpc-surface);
+    color: var(--zchpc-text);
+    min-width: 0;
+}
+
+.badge-muted { background: rgba(100, 116, 139, 0.12); color: #475569; }
+.badge-info { background: rgba(0, 163, 224, 0.14); color: #0369a1; }
+
+.status-dot {
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 50%;
+    background: currentColor;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 0.3rem;
+}
+
+.device-table th,
+.device-table td {
+    padding: 0.8rem 0.9rem;
+    font-size: 0.86rem;
+    vertical-align: top;
+}
+
+.device-table thead th {
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+.device-name {
+    font-weight: 600;
+    color: var(--zchpc-secondary);
+    font-size: 0.9rem;
+}
+
+.device-meta {
+    font-size: 0.75rem;
+    color: var(--zchpc-text-muted);
+    margin-top: 0.15rem;
+}
+
+.device-error {
+    display: block;
+    font-size: 0.76rem;
+    color: #b91c1c;
+    max-width: 24rem;
+    line-height: 1.35;
+}
+
+.device-attention {
+    display: block;
+    font-size: 0.75rem;
+    color: #b45309;
+    max-width: 24rem;
+}
+
+.device-note {
+    font-size: 0.78rem;
+    color: var(--zchpc-text-muted);
+}
+
+.device-actions-cell {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    min-width: 190px;
+}
+
+.btn-xs {
+    padding: 0.3rem 0.55rem;
+    font-size: 0.74rem;
+    border-radius: var(--radius-md);
+}
+
+.device-actions-cell form { margin: 0; }
+
+/* Door controls are wrapped in a display:contents span so they share the
+   action flex row; the hidden attribute must still hide them. */
+[data-door-controls] { display: contents; }
+[data-door-controls][hidden] { display: none !important; }
+
+.device-progress {
+    background: var(--zchpc-surface);
+    border: 1px solid var(--zchpc-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 1rem 1.15rem;
+    margin-bottom: 1.25rem;
+}
+
+.device-progress-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.6rem;
+    font-size: 0.88rem;
+}
+
+.device-progress-bar {
+    height: 0.5rem;
+    background: var(--zchpc-border);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.device-progress-bar span {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--zchpc-accent);
+    transition: width 0.35s ease;
+}
+
+.device-progress-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.55rem;
+    font-size: 0.78rem;
+    color: var(--zchpc-text-muted);
+}
+
+.device-settings {
+    background: var(--zchpc-surface);
+    border: 1px solid var(--zchpc-border);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.15rem;
+    margin-bottom: 1.25rem;
+}
+
+.device-settings summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--zchpc-secondary);
+    font-size: 0.92rem;
+}
+
+.device-settings form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+    align-items: flex-end;
+    margin-top: 1rem;
+}
+
+.device-settings label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+    color: var(--zchpc-text-muted);
+}
+
+.device-settings .checkbox-label {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--zchpc-text);
+    font-size: 0.85rem;
+}
+
+.device-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2rem 1rem;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+.device-modal[hidden] { display: none; }
+
+.device-modal-card {
+    background: var(--zchpc-surface);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    max-width: 820px;
+    width: 100%;
+    padding: 1.5rem;
+}
+
+.device-modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.device-modal-head h2 { margin: 0; font-size: 1.15rem; }
+.device-modal-head p { margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--zchpc-text-muted); }
+
+.diag-section {
+    border-top: 1px solid var(--zchpc-border);
+    padding-top: 0.85rem;
+    margin-top: 0.85rem;
+}
+
+.diag-section h3 {
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--zchpc-text-muted);
+    margin: 0 0 0.5rem;
+}
+
+.diag-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: 0.85rem;
+    padding: 0.3rem 0;
+    border-bottom: 1px dashed var(--zchpc-border);
+}
+
+.diag-row:last-child { border-bottom: 0; }
+.diag-row > span:first-child { color: var(--zchpc-text-muted); flex-shrink: 0; }
+.diag-row > span:last-child { text-align: right; word-break: break-word; }
+
+.diag-list {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.85rem;
+    color: var(--zchpc-text);
+}
+
+.diag-list li { margin-bottom: 0.3rem; }
+
+.device-toasts {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    z-index: 1100;
+    max-width: 24rem;
+}
+
+.device-toast {
+    padding: 0.7rem 1rem;
+    border-radius: var(--radius-md);
+    color: #fff;
+    font-size: 0.84rem;
+    box-shadow: var(--shadow-md);
+    line-height: 1.4;
+}
+
+.device-toast.success { background: #047857; }
+.device-toast.error { background: #b91c1c; }
+.device-toast.info { background: #0369a1; }
+
+.check-col { width: 2.2rem; }
+
+.device-row-checking .badge {
+    opacity: 0.75;
+}
+
+@media (max-width: 1080px) {
+    .hide-md { display: none; }
+    .device-search { margin-left: 0; width: 100%; }
+}
+
+@media (max-width: 700px) {
+    .device-stats { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+    .device-actions { width: 100%; }
+    .device-actions .btn { flex: 1 1 auto; justify-content: center; }
+    .device-actions-cell { min-width: 0; }
+    .diag-row { flex-direction: column; gap: 0.15rem; }
+    .diag-row > span:last-child { text-align: left; }
+}
