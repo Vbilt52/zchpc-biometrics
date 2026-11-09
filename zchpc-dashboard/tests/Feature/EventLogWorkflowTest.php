@@ -209,6 +209,72 @@ class EventLogWorkflowTest extends TestCase
             ->assertJsonMissing(['fingerData' => 'must-never-leave-terminal']);
     }
 
+    public function test_access_events_can_be_filtered_by_door_and_searched_per_user(): void
+    {
+        $user = User::factory()->create();
+        $terminal = $this->terminal();
+        $door1 = \App\Models\Door::create([
+            'name' => 'Server Room Door',
+            'code' => 'DOOR-001',
+            'terminal_id' => $terminal->id,
+            'door_no' => 1,
+            'is_active' => true,
+        ]);
+        $door2 = \App\Models\Door::create([
+            'name' => 'Archive Door',
+            'code' => 'DOOR-002',
+            'terminal_id' => $terminal->id,
+            'door_no' => 2,
+            'is_active' => true,
+        ]);
+
+        $tz = config('attendance.timezone');
+        $now = now($tz);
+
+        \App\Models\AccessEvent::create([
+            'terminal_id' => $terminal->id,
+            'event_key' => 'event-door-1',
+            'employee_no' => 'EMP-001',
+            'person_name' => 'Alice Wonder',
+            'occurred_at' => $now->copy()->subMinutes(10)->utc(),
+            'major' => 5,
+            'minor' => 38,
+            'raw_payload' => ['doorNo' => 1],
+        ]);
+
+        \App\Models\AccessEvent::create([
+            'terminal_id' => $terminal->id,
+            'event_key' => 'event-door-2',
+            'employee_no' => 'EMP-002',
+            'person_name' => 'Bob Marley',
+            'occurred_at' => $now->copy()->subMinutes(5)->utc(),
+            'major' => 5,
+            'minor' => 38,
+            'raw_payload' => ['doorNo' => 2],
+        ]);
+
+        // Filter by door 1
+        $response = $this->actingAs($user)->get(route('events.index', [
+            'door_id' => $door1->id,
+            'from' => $now->copy()->subHour()->format('Y-m-d\TH:i'),
+            'to' => $now->copy()->addHour()->format('Y-m-d\TH:i'),
+        ]));
+        $response->assertOk()
+            ->assertSee('Alice Wonder')
+            ->assertDontSee('Bob Marley')
+            ->assertSee('Server Room Door');
+
+        // Search per user
+        $searchResponse = $this->actingAs($user)->get(route('events.index', [
+            'search' => 'Bob',
+            'from' => $now->copy()->subHour()->format('Y-m-d\TH:i'),
+            'to' => $now->copy()->addHour()->format('Y-m-d\TH:i'),
+        ]));
+        $searchResponse->assertOk()
+            ->assertSee('Bob Marley')
+            ->assertDontSee('Alice Wonder');
+    }
+
     private function terminal(): Terminal
     {
         return Terminal::create([

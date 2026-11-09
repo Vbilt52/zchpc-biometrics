@@ -77,6 +77,21 @@
                     <span>Device Sync</span>
                 </a>
             </nav>
+
+            {{-- Admin profile + sign-out at bottom of sidebar --}}
+            <div class="sidebar-user-block">
+                <div class="sidebar-user-avatar">{{ strtoupper(substr(auth()->user()->name ?? 'A', 0, 1)) }}</div>
+                <div class="sidebar-user-info">
+                    <span class="sidebar-user-name">{{ auth()->user()->name ?? 'Admin' }}</span>
+                    <span class="sidebar-user-role">Administrator</span>
+                </div>
+                <form action="{{ route('logout') }}" method="POST" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="sidebar-signout-btn" title="Sign out">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </form>
+            </div>
         </aside>
 
         <!-- Main Content Area -->
@@ -86,41 +101,12 @@
                     <button class="sidebar-toggle-btn" type="button" aria-label="Toggle navigation">
                         <i class="fa-solid fa-bars"></i>
                     </button>
-                    <div class="header-brand-wrap">
-                        <span class="header-brand-name">ZCHPC Access Control Suite</span>
-                        <span class="header-brand-divider">|</span>
-                        <span class="header-brand-sub">Zimbabwe Centre for High Performance Computing</span>
-                    </div>
                 </div>
 
                 <div class="top-header-center">
                     <div class="header-search-bar">
                         <i class="fa-solid fa-magnifying-glass search-icon"></i>
                         <input type="text" placeholder="Search personnel, device, or event..." aria-label="Search" class="search-input">
-                    </div>
-                </div>
-
-                <div class="top-header-right">
-                    <a href="{{ route('devices.alerts.index') }}" class="bell-button" title="Device alerts" aria-label="Device alerts">
-                        <i class="fa-solid fa-bell"></i>
-                        <span class="bell-dot"></span>
-                    </a>
-
-                    <div class="user-profile-badge">
-                        <div class="user-avatar-circle">
-                            {{ strtoupper(substr(auth()->user()->name ?? 'A', 0, 1)) }}
-                        </div>
-                        <span class="user-display-name">{{ auth()->user()->name ?? 'Admin' }}</span>
-                        <i class="fa-solid fa-chevron-down user-caret"></i>
-                        
-                        <div class="user-dropdown-popover">
-                            <form action="{{ route('logout') }}" method="POST" style="margin:0;">
-                                @csrf
-                                <button type="submit" class="logout-link-btn">
-                                    <i class="fa-solid fa-right-from-bracket"></i> Sign out
-                                </button>
-                            </form>
-                        </div>
                     </div>
                 </div>
             </header>

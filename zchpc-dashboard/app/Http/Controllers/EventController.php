@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AccessEvent;
+use App\Models\Door;
 use App\Models\Personnel;
 use App\Models\Terminal;
 use App\Models\TerminalEventSync;
@@ -40,10 +41,12 @@ class EventController extends Controller
             ->withQueryString();
 
         $terminals = Terminal::orderBy('phase')->orderBy('name')->get();
+        $doors = Door::with('terminal')->orderBy('name')->get();
+        $doorsByTerminalDoor = $doors->keyBy(fn ($d) => $d->terminal_id.'_'.$d->door_no);
         $personnel = Personnel::orderBy('name')->get(['id', 'employee_no', 'name']);
         $syncStates = TerminalEventSync::all()->keyBy('terminal_id');
 
-        return view('events', compact('events', 'terminals', 'personnel', 'filters', 'syncStates'));
+        return view('events', compact('events', 'terminals', 'doors', 'doorsByTerminalDoor', 'personnel', 'filters', 'syncStates'));
     }
 
     /**
@@ -181,12 +184,13 @@ class EventController extends Controller
     }
 
     /**
-     * @return array{terminal_id: int|null, personnel_id: int|null, search: string|null, from: Carbon, to: Carbon}
+     * @return array{terminal_id: int|null, door_id: int|null, personnel_id: int|null, search: string|null, from: Carbon, to: Carbon}
      */
     private function filters(Request $request, bool $terminalRequired = false): array
     {
         $validated = $request->validate([
             'terminal_id' => [$terminalRequired ? 'required' : 'nullable', 'integer', 'exists:terminals,id'],
+            'door_id' => ['nullable', 'integer', 'exists:doors,id'],
             'personnel_id' => ['nullable', 'integer', 'exists:personnel,id'],
             'search' => ['nullable', 'string', 'max:64'],
             'outcome' => ['nullable', 'in:all,denied'],
@@ -203,6 +207,7 @@ class EventController extends Controller
 
         return [
             'terminal_id' => isset($validated['terminal_id']) ? (int) $validated['terminal_id'] : null,
+            'door_id' => isset($validated['door_id']) ? (int) $validated['door_id'] : null,
             'personnel_id' => isset($validated['personnel_id']) ? (int) $validated['personnel_id'] : null,
             'search' => filled($validated['search'] ?? null) ? trim($validated['search']) : null,
             'outcome' => $validated['outcome'] ?? 'all',
@@ -211,7 +216,7 @@ class EventController extends Controller
         ];
     }
 
-    /** @param array{terminal_id: int|null, personnel_id: int|null, search: string|null, from: Carbon, to: Carbon} $filters */
+    /** @param array{terminal_id: int|null, door_id: int|null, personnel_id: int|null, search: string|null, from: Carbon, to: Carbon} $filters */
     private function filteredEvents(array $filters): Builder
     {
         $query = AccessEvent::query()->whereBetween('occurred_at', [$filters['from']->copy()->utc(), $filters['to']->copy()->utc()]);
@@ -219,7 +224,16 @@ class EventController extends Controller
             $query->failedAttempt();
         }
 
-        if ($filters['terminal_id'] !== null) {
+        if (! empty($filters['door_id'])) {
+            $door = Door::find($filters['door_id']);
+            if ($door) {
+                $query->where('terminal_id', $door->terminal_id)
+                    ->where(function (Builder $q) use ($door): void {
+                        $q->where('raw_payload->doorNo', (int) $door->door_no)
+                            ->orWhere('raw_payload->doorNo', (string) $door->door_no);
+                    });
+            }
+        } elseif ($filters['terminal_id'] !== null) {
             $query->where('terminal_id', $filters['terminal_id']);
         }
 
@@ -239,7 +253,7 @@ class EventController extends Controller
         return $query;
     }
 
-    /** @param array{terminal_id: int|null, personnel_id: int|null, search: string|null, from: Carbon, to: Carbon} $filters */
+    /** @param array{terminal_id: int|null, door_id: int|null, personnel_id: int|null, search: string|null, from: Carbon, to: Carbon} $filters */
     private function reportEvents(array $filters): Collection
     {
         return $this->filteredEvents($filters)
@@ -250,13 +264,14 @@ class EventController extends Controller
     }
 
     /**
-     * @param  array{terminal_id: int|null, personnel_id: int|null, search: string|null, from: Carbon, to: Carbon}  $filters
+     * @param  array{terminal_id: int|null, door_id: int|null, personnel_id: int|null, search: string|null, from: Carbon, to: Carbon}  $filters
      * @return array<string, int|string>
      */
     private function filterQuery(array $filters): array
     {
         return array_filter([
             'terminal_id' => $filters['terminal_id'],
+            'door_id' => $filters['door_id'] ?? null,
             'personnel_id' => $filters['personnel_id'],
             'search' => $filters['search'],
             'outcome' => $filters['outcome'] ?? 'all',

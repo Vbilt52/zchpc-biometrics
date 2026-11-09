@@ -61,6 +61,17 @@
                 </select>
             </div>
             <div>
+                <label style="font-size:.78rem;font-weight:600;color:var(--zchpc-text-muted);display:block;margin-bottom:.35rem;">DOOR</label>
+                <select name="door_id" style="width:100%;padding:.6rem .7rem;border:1px solid var(--zchpc-border);border-radius:var(--radius-md);">
+                    <option value="">All doors</option>
+                    @foreach($doors as $door)
+                        <option value="{{ $door->id }}" @selected(($filters['door_id'] ?? null) === $door->id)>
+                            {{ $door->name }} ({{ $door->terminal?->name }})
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
                 <label style="font-size:.78rem;font-weight:600;color:var(--zchpc-text-muted);display:block;margin-bottom:.35rem;">PERSON</label>
                 <select name="personnel_id" style="width:100%;padding:.6rem .7rem;border:1px solid var(--zchpc-border);border-radius:var(--radius-md);">
                     <option value="">All people</option>
@@ -124,22 +135,30 @@
     </div>
     <div class="table-wrapper">
         <table>
-            <thead><tr><th>Time</th><th>Terminal</th><th>Person / Employee ID</th><th>Method</th><th>Result</th></tr></thead>
+            <thead><tr><th>Time</th><th>Terminal</th><th>Door</th><th>Person / Employee ID</th><th>Method</th><th>Result</th></tr></thead>
             <tbody>
                 @forelse($events as $event)
                     @php
                         $outcome = $event->outcomeLabel();
                         $outcomeClass = match($outcome) { 'Granted' => 'badge-success', 'Denied' => 'badge-danger', 'Exit' => 'badge-info', default => 'badge-muted' };
+                        $doorNo = $event->raw_payload['doorNo'] ?? null;
+                        $doorObj = $doorNo && isset($doorsByTerminalDoor[$event->terminal_id.'_'.$doorNo]) ? $doorsByTerminalDoor[$event->terminal_id.'_'.$doorNo] : null;
+                        $doorDisplay = $doorObj ? $doorObj->name : ($doorNo ? 'Door '.$doorNo : '—');
                     @endphp
                     <tr>
                         <td style="white-space:nowrap;color:var(--zchpc-text-muted);font-size:.84rem;">{{ app(\App\Services\AttendanceRegisterService::class)->eventTime($event)?->format('d M Y H:i:s') ?? 'Unknown time' }}</td>
                         <td style="font-weight:600;font-size:.85rem;">{{ $event->terminal?->name ?? 'Removed terminal' }}</td>
+                        <td style="font-size:.85rem;color:var(--zchpc-text-main);font-weight:600;">
+                            <span class="badge" style="background:rgba(12,112,162,0.09);color:#0c70a2;border:1px solid rgba(12,112,162,0.25);font-size:.8rem;padding:.2rem .55rem;">
+                                <i class="fa-solid fa-door-closed" style="margin-right:4px;font-size:.75rem;"></i>{{ $doorDisplay }}
+                            </span>
+                        </td>
                         <td><div style="font-weight:600;font-size:.88rem;">{{ $event->person_name ?: ($event->personnel?->name ?: 'Unknown person') }}</div><div style="font-family:monospace;font-size:.76rem;color:var(--zchpc-text-muted);">{{ $event->employee_no ? 'ID: '.$event->employee_no : 'No employee ID' }}</div></td>
                         <td><span style="font-size:.82rem;padding:.25rem .55rem;border-radius:var(--radius-md);background:rgba(0,74,134,.07);color:var(--zchpc-primary);">{{ $event->methodLabel() }}</span></td>
                         <td><span class="badge {{ $outcomeClass }}">{{ $outcome }}</span></td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" style="text-align:center;padding:3rem;color:var(--zchpc-text-muted);"><i class="fa-solid fa-clock-rotate-left" style="font-size:2rem;opacity:.3;display:block;margin-bottom:.75rem;"></i>No imported records match the selected filters. Choose one terminal and import its logs first.</td></tr>
+                    <tr><td colspan="6" style="text-align:center;padding:3rem;color:var(--zchpc-text-muted);"><i class="fa-solid fa-clock-rotate-left" style="font-size:2rem;opacity:.3;display:block;margin-bottom:.75rem;"></i>No imported records match the selected filters. Choose one terminal and import its logs first.</td></tr>
                 @endforelse
             </tbody>
         </table>
