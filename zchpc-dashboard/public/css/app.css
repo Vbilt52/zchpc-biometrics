@@ -313,21 +313,21 @@ h1, h2, h3, h4, h5, h6 {
     height: 64px;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: 20px;
-    padding: 0 28px;
-    background: #001b3d;
-    border-bottom: 2px solid #0c70a2;
+    justify-content: center;
     position: sticky;
     top: 0;
     z-index: 50;
+    padding: 0 28px;
+    background: #001b3d;
+    border-bottom: 2px solid #0c70a2;
     box-shadow: 0 2px 12px rgba(0, 20, 50, 0.35);
 }
 
 .top-header-left {
+    position: absolute;
+    left: 28px;
     display: flex;
     align-items: center;
-    flex-shrink: 0;
 }
 
 .sidebar-toggle-btn {
@@ -357,9 +357,10 @@ h1, h2, h3, h4, h5, h6 {
 .top-header-center {
     display: flex;
     align-items: center;
-    flex: 1;
+    justify-content: center;
+    width: 100%;
     max-width: 600px;
-    margin: 0;
+    margin: 0 auto;
 }
 
 .header-search-bar {

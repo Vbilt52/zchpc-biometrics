@@ -47,12 +47,6 @@
             @endif
         </div>
 
-        <!-- ── Tab bar ── -->
-        <div class="auth-tabs">
-            <div class="auth-tab auth-tab-active" id="tab-signin">Sign In</div>
-            <div class="auth-tab auth-tab-inactive" id="tab-signup">Sign Up</div>
-        </div>
-
         <!-- ── Card body ── -->
         <div class="auth-body">
             <form id="login-form" method="POST" action="{{ route('login.store') }}">
@@ -121,17 +115,6 @@
     </div>
 
     <!-- ══════════════════════════════════════
-         Sign Up Modal (restricted notice)
-         ══════════════════════════════════════ -->
-    <div class="auth-modal-overlay" id="signup-modal">
-        <div class="auth-modal">
-            <button class="auth-modal-close" data-close-modal="signup-modal"><i class="fa-solid fa-xmark"></i></button>
-            <h3><i class="fa-solid fa-user-plus" style="color:#0070e0; margin-right:0.4rem;"></i> Registration Unavailable</h3>
-            <p>User accounts are managed by the system administrator. Please contact your administrator to request access to the ZCHPC Access Control dashboard.</p>
-        </div>
-    </div>
-
-    <!-- ══════════════════════════════════════
          Forgot Password Modal
          ══════════════════════════════════════ -->
     <div class="auth-modal-overlay" id="forgot-modal">
@@ -172,11 +155,6 @@
                         : 'fa-regular fa-eye';
                 });
             }
-
-            // ── Tab switching ──
-            document.getElementById('tab-signup').addEventListener('click', function () {
-                document.getElementById('signup-modal').classList.add('active');
-            });
 
             // ── Forgot password link ──
             document.getElementById('forgot-link').addEventListener('click', function (e) {

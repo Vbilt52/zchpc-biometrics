@@ -92,9 +92,9 @@
                 <label style="font-size:.78rem;font-weight:600;color:var(--zchpc-text-muted);display:block;margin-bottom:.35rem;">TO</label>
                 <input id="event-to" type="datetime-local" name="to" value="{{ $filters['to']->format('Y-m-d\TH:i') }}" style="width:100%;padding:.6rem .7rem;border:1px solid var(--zchpc-border);border-radius:var(--radius-md);">
             </div>
-            <div style="display:flex;gap:.5rem;">
-                <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
-                <a href="{{ route('events.index') }}" class="btn btn-outline" title="Clear filters"><i class="fa-solid fa-rotate-left"></i></a>
+            <div style="grid-column: 1 / -1; display:flex; justify-content:center; align-items:center; gap:.75rem; margin-top:.5rem; padding-top:.5rem;">
+                <button type="submit" class="btn btn-primary" style="min-width:200px; padding:.65rem 1.75rem; justify-content:center; font-weight:700;"><i class="fa-solid fa-magnifying-glass"></i> Search Records</button>
+                <a href="{{ route('events.index') }}" class="btn btn-outline" title="Clear filters" style="padding:.65rem 1rem;"><i class="fa-solid fa-rotate-left"></i> Reset</a>
             </div>
         </form>
 

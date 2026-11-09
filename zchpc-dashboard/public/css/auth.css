@@ -49,8 +49,9 @@
 .auth-header {
     background: linear-gradient(175deg, #0c70a2 0%, #001b3d 100%);
     text-align: center;
-    padding: 1.75rem 2rem 1.25rem;
+    padding: 1.75rem 2rem 1.35rem;
     position: relative;
+    border-bottom: 2px solid #0c70a2;
 }
 
 .auth-header::after {
