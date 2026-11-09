@@ -142,11 +142,11 @@ function downloadPersonnelPDF() {
     
     const pdfContent = `
         <div style="padding: 24px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; border-bottom: 2px solid #004a86; padding-bottom: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; border-bottom: 2px solid #0c70a2; padding-bottom: 14px;">
                 <div style="display: flex; align-items: center; gap: 16px;">
                     <img src="{{ asset('images/zchpc-logo.png') }}" style="height: 55px; width: auto;" alt="ZCHPC Logo" onerror="this.style.display='none'">
                     <div>
-                        <h2 style="margin: 0; color: #004a86; font-size: 18px; font-weight: 700; letter-spacing: -0.02em;">Zimbabwe Centre for High Performance Computing</h2>
+                        <h2 style="margin: 0; color: #0c70a2; font-size: 18px; font-weight: 800; letter-spacing: -0.02em;">Zimbabwe Centre for High Performance Computing</h2>
                         <h3 style="margin: 4px 0 0; color: #475569; font-size: 14px; font-weight: 600;">Official Personnel Directory & Access Control Permissions</h3>
                     </div>
                 </div>

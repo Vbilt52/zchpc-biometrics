@@ -24,7 +24,7 @@
         <!-- ── Header (dark navy) ── -->
         <div class="auth-header">
             <div class="auth-emblem">
-                <img src="{{ asset('images/zchpc-emblem-white.png') }}" alt="ZCHPC emblem" width="32" height="32">
+                <img src="{{ asset('images/zchpc-logo.png') }}" alt="ZCHPC Logo" width="52" height="52">
             </div>
             <div class="auth-emblem-label">ZCHPC</div>
             <h1 class="auth-title">ZCHPC Access Control</h1>

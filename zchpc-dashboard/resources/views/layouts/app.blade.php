@@ -16,7 +16,7 @@
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-building-header">
-                <img src="{{ asset('images/zchpc-building.png') }}" alt="ZCHPC Building" class="sidebar-building-img">
+                <img src="{{ asset('images/zchpc-building.png') }}" alt="ZCHPC Logo" class="sidebar-building-img">
             </div>
             
             <div class="sidebar-brand-block">
