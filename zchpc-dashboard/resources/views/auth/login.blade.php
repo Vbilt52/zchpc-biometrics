@@ -26,7 +26,6 @@
             <div class="auth-emblem">
                 <img src="{{ asset('images/zchpc-logo.png') }}" alt="ZCHPC Logo" width="74" height="74">
             </div>
-            <div class="auth-emblem-label">ZCHPC</div>
             <h1 class="auth-title">ZCHPC Access Control</h1>
             <p class="auth-subtitle">Secure authentication for your control panel</p>
 
