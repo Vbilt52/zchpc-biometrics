@@ -20,7 +20,6 @@
             </div>
             
             <div class="sidebar-brand-block">
-                <h2 class="sidebar-brand-title">ZCHPC</h2>
                 <p class="sidebar-brand-subtitle">Access Control Suite</p>
             </div>
             

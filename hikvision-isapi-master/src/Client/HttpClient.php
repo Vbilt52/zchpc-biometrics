@@ -103,12 +103,34 @@ class HttpClient implements HttpClientInterface
 
             // Parse JSON responses
             if (str_contains($contentType, 'application/json')) {
-                return json_decode($body, true) ?? [];
+                $decoded = json_decode($body, true);
+                if (is_array($decoded)) {
+                    return $decoded;
+                }
+
+                // Hikvision devices occasionally declare application/json in header but return XML body
+                if (str_starts_with(ltrim($body), '<')) {
+                    return $this->xmlToArray($body);
+                }
+
+                return [];
             }
 
             // Parse XML responses
             if (str_contains($contentType, 'application/xml') || str_contains($contentType, 'text/xml')) {
                 return $this->xmlToArray($body);
+            }
+
+            // Fallback for body content starting with XML or JSON
+            $trimmed = ltrim($body);
+            if (str_starts_with($trimmed, '<')) {
+                return $this->xmlToArray($body);
+            }
+            if (str_starts_with($trimmed, '{') || str_starts_with($trimmed, '[')) {
+                $decoded = json_decode($body, true);
+                if (is_array($decoded)) {
+                    return $decoded;
+                }
             }
 
             // Fallback: return raw body
