@@ -46,10 +46,10 @@
     flex-shrink: 0;
 }
 
-.device-stat .icon.primary { background: rgba(12, 112, 162, 0.12); color: var(--zchpc-primary); }
-.device-stat .icon.success { background: rgba(16, 185, 129, 0.12); color: var(--success); }
-.device-stat .icon.danger { background: rgba(239, 68, 68, 0.12); color: var(--danger); }
-.device-stat .icon.warning { background: rgba(245, 158, 11, 0.14); color: #b45309; }
+.device-stat .icon.primary { background: rgba(12, 112, 162, 0.12); color: var(--zchpc-primary); border: 1px solid rgba(12, 112, 162, 0.25); }
+.device-stat .icon.success { background: #dcfce7; color: #047857; border: 1px solid #86efac; }
+.device-stat .icon.danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+.device-stat .icon.warning { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
 .device-stat .icon.muted { background: rgba(100, 116, 139, 0.12); color: #475569; }
 
 .device-stat .value {
@@ -88,7 +88,7 @@
     background: var(--zchpc-surface);
     color: var(--zchpc-text);
     font-size: 0.8rem;
-    font-weight: 500;
+    font-weight: 600;
     text-decoration: none;
 }
 
@@ -96,6 +96,19 @@
     background: var(--zchpc-primary);
     border-color: var(--zchpc-primary);
     color: #fff;
+    font-weight: 700;
+}
+
+.filter-pill[href*="status=online"].active {
+    background: #047857 !important;
+    border-color: #047857 !important;
+    color: #fff !important;
+}
+
+.filter-pill[href*="status=offline"].active {
+    background: #991b1b !important;
+    border-color: #991b1b !important;
+    color: #fff !important;
 }
 
 .filter-pill .count {
@@ -130,17 +143,46 @@
     min-width: 0;
 }
 
-.badge-muted { background: rgba(100, 116, 139, 0.12); color: #475569; }
-.badge-info { background: rgba(0, 163, 224, 0.14); color: #0369a1; }
+.badge-muted { background: rgba(100, 116, 139, 0.12); color: #475569; border: 1px solid rgba(100, 116, 139, 0.2); }
+.badge-info { background: rgba(0, 163, 224, 0.14); color: #0369a1; border: 1px solid rgba(0, 163, 224, 0.25); }
+
+.device-table .badge-success {
+    background: #dcfce7 !important;
+    color: #047857 !important;
+    border: 1px solid #86efac !important;
+    font-weight: 700 !important;
+}
+
+.device-table .badge-danger {
+    background: #fee2e2 !important;
+    color: #991b1b !important;
+    border: 1px solid #fca5a5 !important;
+    font-weight: 700 !important;
+}
+
+.device-table .badge-warning {
+    background: #fef3c7 !important;
+    color: #92400e !important;
+    border: 1px solid #fcd34d !important;
+    font-weight: 700 !important;
+}
+
+.device-table .badge-primary {
+    background: #e0f2fe !important;
+    color: #0369a1 !important;
+    border: 1px solid #7dd3fc !important;
+    font-weight: 700 !important;
+}
 
 .status-dot {
-    width: 0.42rem;
-    height: 0.42rem;
+    width: 0.52rem;
+    height: 0.52rem;
     border-radius: 50%;
     background: currentColor;
     display: inline-block;
     vertical-align: middle;
-    margin-right: 0.3rem;
+    margin-right: 0.35rem;
+    box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9);
 }
 
 .device-table th,

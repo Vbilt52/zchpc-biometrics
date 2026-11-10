@@ -242,7 +242,7 @@
                                 </div>
                                 <div>
                                     @if(!$fpData['online'])
-                                        <span class="badge" style="background:rgba(239,68,68,.1);color:#ef4444;font-size:.7rem;"><i class="fa-solid fa-triangle-exclamation"></i> Offline</span>
+                                        <span class="badge badge-danger" style="font-size:.7rem;"><i class="fa-solid fa-triangle-exclamation"></i> Offline</span>
                                     @elseif($fpData['count'] > 0)
                                         <span class="badge badge-success" style="font-size:.7rem;">{{ $fpData['count'] }} enrolled</span>
                                     @else

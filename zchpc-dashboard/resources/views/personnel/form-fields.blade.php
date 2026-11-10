@@ -41,7 +41,7 @@
                         @if($terminal->isOnline())
                             <span class="badge badge-success" style="font-size:0.7rem;padding:2px 6px;"><i class="fa-solid fa-circle" style="font-size:0.5rem;vertical-align:middle;margin-right:2px;"></i> Online</span>
                         @else
-                            <span class="badge" style="font-size:0.7rem;padding:2px 6px;background:rgba(100,116,139,.15);color:#64748b;"><i class="fa-solid fa-circle" style="font-size:0.5rem;vertical-align:middle;margin-right:2px;"></i> {{ $terminal->statusLabel() }}</span>
+                            <span class="badge badge-danger" style="font-size:0.7rem;padding:2px 6px;"><i class="fa-solid fa-circle" style="font-size:0.5rem;vertical-align:middle;margin-right:2px;"></i> {{ $terminal->statusLabel() }}</span>
                         @endif
                     </span>
                     <small>{{ $terminal->phase }} · {{ $terminal->location ?: $terminal->ip }}</small>

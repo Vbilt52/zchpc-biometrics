@@ -171,7 +171,7 @@
                 </div>
                 <div class="status-item">
                     <div class="status-item-left">
-                        <i class="fa-regular fa-clock status-icon-offline"></i>
+                        <i class="fa-solid fa-circle-xmark status-icon-offline"></i>
                         <span class="status-label">Offline</span>
                     </div>
                     <span class="status-count" id="status-offline-count">{{ $offlineTerminals }}</span>
@@ -290,7 +290,7 @@
                 <div class="health-gauge">
                     <svg width="76" height="76" viewBox="0 0 76 76">
                         <circle cx="38" cy="38" r="32" stroke="#dcfce7" stroke-width="6" fill="none" />
-                        <circle cx="38" cy="38" r="32" stroke="#10b981" stroke-width="6" fill="none" 
+                        <circle cx="38" cy="38" r="32" stroke="#047857" stroke-width="6" fill="none" 
                                 stroke-dasharray="201.06" stroke-dashoffset="0" stroke-linecap="round" />
                         <text x="38" y="44" text-anchor="middle" font-size="16" font-weight="800" fill="#047857" font-family="'Inter', sans-serif">100%</text>
                     </svg>

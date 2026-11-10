@@ -161,8 +161,8 @@ function downloadPersonnelPDF() {
                 td { padding: 8px 10px; border: 1px solid #e2e8f0; color: #1e293b; vertical-align: middle; }
                 tr:nth-child(even) { background-color: #f8fafc; }
                 .badge { padding: 3px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; display: inline-block; }
-                .badge-success { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
-                .badge-danger { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+                .badge-success { background: #dcfce7; color: #047857; border: 1px solid #86efac; font-weight: 700; }
+                .badge-danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-weight: 700; }
                 .badge-info { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
                 /* Hide action buttons column in PDF */
                 th:last-child, td:last-child { display: none; }

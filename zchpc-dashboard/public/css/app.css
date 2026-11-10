@@ -12,9 +12,9 @@
     --zchpc-text-muted: #475569;
     --zchpc-border: #cbd5e1;
     
-    --success: #10B981;
-    --danger: #EF4444;
-    --warning: #F59E0B;
+    --success: #047857;
+    --danger: #991b1b;
+    --warning: #b45309;
     
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -875,18 +875,24 @@ tbody tr:last-child td {
 }
 
 .badge-success {
-    background: rgba(16,185,129,0.12);
-    color: var(--success);
+    background: #dcfce7;
+    color: #047857;
+    border: 1px solid #86efac;
+    font-weight: 700;
 }
 
 .badge-danger {
-    background: rgba(239,68,68,0.12);
-    color: var(--danger);
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+    font-weight: 700;
 }
 
 .badge-warning {
-    background: rgba(245,158,11,0.12);
-    color: var(--warning);
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+    font-weight: 700;
 }
 
 .badge-primary {
@@ -1589,30 +1595,40 @@ tbody tr:last-child td {
 }
 
 .status-icon-online {
-    color: #10b981;
-    font-size: 1.25rem;
+    color: #047857;
+    font-size: 1.35rem;
 }
 
 .status-icon-offline {
-    color: #94a3b8;
-    font-size: 1.25rem;
+    color: #991b1b;
+    font-size: 1.35rem;
 }
 
 .status-icon-total {
-    color: #0077ff;
-    font-size: 1.25rem;
+    color: var(--zchpc-primary);
+    font-size: 1.35rem;
 }
 
 .status-label {
-    font-weight: 500;
-    color: #1e293b;
+    font-weight: 700;
+    color: #0f172a;
     font-size: 0.95rem;
 }
 
 .status-count {
-    font-weight: 700;
-    font-size: 1.15rem;
+    font-weight: 800;
+    font-size: 1.25rem;
     color: #0f172a;
+}
+
+#status-online-count {
+    color: #047857;
+    font-weight: 800;
+}
+
+#status-offline-count {
+    color: #991b1b;
+    font-weight: 800;
 }
 
 /* Quick Actions Styles */
