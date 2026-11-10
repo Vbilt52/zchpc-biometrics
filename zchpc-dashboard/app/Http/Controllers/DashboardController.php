@@ -56,9 +56,15 @@ class DashboardController extends Controller
         $failedAttemptsToday = AccessEvent::where('occurred_at', '>=', $todayStart)->failedAttempt()->count();
         $totalAccessToday = $todayEvents->count();
 
-        // Department attendance breakdown
-        $deptStats = $departments->map(function ($dept) use ($todayEvents): array {
-            $deptEmployees = Personnel::where('access_group_id', $dept->id)->pluck('employee_no')->filter()->all();
+        // Department attendance breakdown (single query grouped by access_group_id to avoid N+1 queries)
+        $personnelByDept = Personnel::query()
+            ->whereNotNull('access_group_id')
+            ->whereNotNull('employee_no')
+            ->get(['employee_no', 'access_group_id'])
+            ->groupBy('access_group_id');
+
+        $deptStats = $departments->map(function ($dept) use ($todayEvents, $personnelByDept): array {
+            $deptEmployees = $personnelByDept->get($dept->id, collect())->pluck('employee_no')->filter()->all();
             $presentCount = $todayEvents->whereIn('employee_no', $deptEmployees)->pluck('employee_no')->unique()->count();
             $totalInDept = count($deptEmployees);
             $rate = $totalInDept > 0 ? (int) round(($presentCount / $totalInDept) * 100) : 0;
@@ -165,12 +171,19 @@ class DashboardController extends Controller
         $totalPersons = Personnel::count();
         $zone = config('attendance.timezone');
         $today = now($zone)->startOfDay();
+        $sevenDaysAgo = $today->copy()->subDays(6)->utc();
+        $tomorrowUtc = $today->copy()->addDay()->utc();
+        $weekEvents = AccessEvent::query()
+            ->where('occurred_at', '>=', $sevenDaysAgo)
+            ->where('occurred_at', '<', $tomorrowUtc)
+            ->pluck('occurred_at');
+
         $chartDays = [];
         for ($ago = 6; $ago >= 0; $ago--) {
-            $day = $today->copy()->subDays($ago);
-            $count = AccessEvent::where('occurred_at', '>=', $day->copy()->utc())
-                ->where('occurred_at', '<', $day->copy()->addDay()->utc())->count();
-            $chartDays[] = ['day' => $day->format('D d M'), 'count' => $count];
+            $dayStart = $today->copy()->subDays($ago)->utc();
+            $dayEnd = $dayStart->copy()->addDay();
+            $count = $weekEvents->filter(fn ($dt) => $dt && $dt >= $dayStart && $dt < $dayEnd)->count();
+            $chartDays[] = ['day' => $today->copy()->subDays($ago)->format('D d M'), 'count' => $count];
         }
         $chartMax = max(5, (int) (ceil(max(array_column($chartDays, 'count')) / 5) * 5));
         foreach ($chartDays as &$bar) {

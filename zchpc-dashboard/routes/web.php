@@ -92,7 +92,7 @@ Route::middleware(['auth', 'auth.session'])->group(function (): void {
     // Remote door actions (existing behaviour and route names preserved)
     Route::post('/devices/{terminalName}/door/{doorNo}/open', [DeviceController::class, 'openDoor'])->middleware(['can:devices.manage', 'throttle:device-refresh'])->name('devices.door.open');
     Route::post('/devices/{terminalName}/door/{doorNo}/close', [DeviceController::class, 'closeDoor'])->middleware(['can:devices.manage', 'throttle:device-refresh'])->name('devices.door.close');
-    Route::get('/devices/{terminalName}/door/{doorNo}/status', [DeviceController::class, 'getDoorStatus'])->name('devices.door.status');
+    Route::get('/devices/{terminalName}/door/{doorNo}/status', [DeviceController::class, 'getDoorStatus'])->middleware('throttle:device-poll')->name('devices.door.status');
 
     // Personnel — Import & Sync (must be before resource to avoid route conflicts)
     Route::post('/personnel/import-all', [PersonnelController::class, 'importAll'])->middleware('can:access.manage')->name('personnel.import.all');
