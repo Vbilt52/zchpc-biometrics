@@ -226,9 +226,9 @@
                 <div class="events-table-header">
                     <div class="col-th-time">TIME</div>
                     <div class="col-th-personnel">PERSONNEL</div>
-                    <div class="col-th-event">EVENT</div>
+                    <div class="col-th-event">METHOD</div>
                     <div class="col-th-device">DEVICE / DOOR</div>
-                    <div class="col-th-details">DETAILS</div>
+                    <div class="col-th-details">RESULT</div>
                 </div>
 
                 <div class="events-table-body" id="recent-events-body" style="{{ (empty($recentEvents) || count($recentEvents) === 0) ? 'display:none;' : '' }}">
@@ -249,14 +249,14 @@
                                 </div>
                                 <div class="col-event">
                                     <span class="event-pill">
-                                        Type {{ $event['major'] ?? '1' }}-{{ $event['minor'] ?? '1' }}
+                                        {{ $event['method'] ?? 'System' }}
                                     </span>
                                 </div>
                                 <div class="col-device">
                                     {{ $event['terminal_name'] ?? 'Main Entrance' }}
                                 </div>
                                 <div class="col-details">
-                                    <span class="{{ $event['badge_class'] ?? 'badge-neutral-pill' }}">{{ $event['badge'] ?? 'Access Granted' }}</span>
+                                    <span class="badge {{ $event['outcome_class'] ?? 'badge-muted' }}">{{ $event['outcome'] ?? 'Granted' }}</span>
                                 </div>
                             </div>
                         @endforeach
@@ -286,41 +286,41 @@
                 <div class="health-gauge">
                     <svg width="76" height="76" viewBox="0 0 76 76">
                         <circle cx="38" cy="38" r="32" stroke="#dcfce7" stroke-width="6" fill="none" />
-                        <circle cx="38" cy="38" r="32" stroke="#047857" stroke-width="6" fill="none" 
-                                stroke-dasharray="201.06" stroke-dashoffset="0" stroke-linecap="round" />
-                        <text x="38" y="44" text-anchor="middle" font-size="16" font-weight="800" fill="#047857" font-family="'Inter', sans-serif">100%</text>
+                        <circle id="health-gauge-circle" cx="38" cy="38" r="32" stroke="#047857" stroke-width="6" fill="none" 
+                                stroke-dasharray="201.06" stroke-dashoffset="{{ 201.06 * (1 - (($healthPercent ?? 100) / 100)) }}" stroke-linecap="round" />
+                        <text id="health-gauge-text" x="38" y="44" text-anchor="middle" font-size="16" font-weight="800" fill="#047857" font-family="'Inter', sans-serif">{{ $healthPercent ?? 100 }}%</text>
                     </svg>
                 </div>
                 <div class="health-status-text">
                     <div class="status-heading">
-                        <i class="fa-solid fa-circle-check"></i>
-                        <span>System Operational</span>
+                        <i class="fa-solid fa-circle-check" id="health-status-icon" style="color:#047857;"></i>
+                        <span id="health-status-title">{{ $healthTitle ?? 'System Operational' }}</span>
                     </div>
-                    <p class="status-sub">All core services are running properly.</p>
+                    <p class="status-sub" id="health-status-sub">{{ $healthSubtitle ?? 'All core services are running properly.' }}</p>
                 </div>
             </div>
 
             <div class="health-services-list">
                 <div class="health-service-item">
                     <div class="service-name">
-                        <i class="fa-solid fa-circle-check"></i>
+                        <i class="fa-solid fa-circle-check" style="color:#047857;"></i>
                         <span>Access Control Service</span>
                     </div>
                     <span class="health-pill-running">Running</span>
                 </div>
                 <div class="health-service-item">
                     <div class="service-name">
-                        <i class="fa-solid fa-circle-check"></i>
+                        <i class="fa-solid fa-circle-check" style="color:#047857;"></i>
                         <span>Database Service</span>
                     </div>
                     <span class="health-pill-running">Running</span>
                 </div>
                 <div class="health-service-item">
                     <div class="service-name">
-                        <i class="fa-solid fa-circle-check"></i>
+                        <i class="fa-solid fa-circle-check" style="color:#047857;" id="service-comm-icon"></i>
                         <span>Device Communication</span>
                     </div>
-                    <span class="health-pill-running">Running</span>
+                    <span class="health-pill-running" id="service-comm-pill">{{ ($offlineTerminals ?? 0) === 0 ? 'Running' : ($onlineTerminals ?? 0).' Online' }}</span>
                 </div>
             </div>
         </div>
@@ -408,6 +408,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
 
+            // Update System Health
+            if (data.healthPercent !== undefined) {
+                const gaugeCircle = document.getElementById('health-gauge-circle');
+                const gaugeText = document.getElementById('health-gauge-text');
+                const statusTitle = document.getElementById('health-status-title');
+                const statusSub = document.getElementById('health-status-sub');
+                const commPill = document.getElementById('service-comm-pill');
+
+                if (gaugeCircle) {
+                    const circumference = 201.06;
+                    gaugeCircle.style.strokeDashoffset = circumference * (1 - (data.healthPercent / 100));
+                    const strokeColor = data.healthPercent === 100 ? '#047857' : (data.healthPercent >= 75 ? '#d97706' : '#991b1b');
+                    gaugeCircle.setAttribute('stroke', strokeColor);
+                    if (gaugeText) {
+                        gaugeText.textContent = data.healthPercent + '%';
+                        gaugeText.setAttribute('fill', strokeColor);
+                    }
+                }
+                if (statusTitle && data.healthTitle) statusTitle.textContent = data.healthTitle;
+                if (statusSub && data.healthSubtitle) statusSub.textContent = data.healthSubtitle;
+                if (commPill) {
+                    commPill.textContent = data.offlineTerminals === 0 ? 'Running' : data.onlineTerminals + ' Online';
+                }
+            }
+
             // Update Recent Events
             const eventsBody = document.getElementById('recent-events-body');
             const eventsEmpty = document.getElementById('recent-events-empty');
@@ -427,11 +452,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 ${event.employeeNoString ? `<span class="person-id">(${escapeHtml(event.employeeNoString)})</span>` : ''}
                             </div>
                             <div class="col-event">
-                                <span class="event-pill">Type ${escapeHtml(event.major || '1')}-${escapeHtml(event.minor || '1')}</span>
+                                <span class="event-pill">${escapeHtml(event.method || 'System')}</span>
                             </div>
                             <div class="col-device">${escapeHtml(event.terminal_name || 'Main Entrance')}</div>
                             <div class="col-details">
-                                <span class="${escapeHtml(event.badge_class || 'badge-neutral-pill')}">${escapeHtml(event.badge || 'Access Granted')}</span>
+                                <span class="badge ${escapeHtml(event.outcome_class || 'badge-muted')}">${escapeHtml(event.outcome || 'Granted')}</span>
                             </div>
                         </div>
                     `).join('');

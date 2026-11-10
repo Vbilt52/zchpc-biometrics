@@ -80,6 +80,9 @@ class LiveDashboardAndSearchTest extends TestCase
                 'chartMax',
                 'formattedDateTime',
                 'terminalProgress',
+                'healthPercent',
+                'healthTitle',
+                'healthSubtitle',
             ]);
     }
 }

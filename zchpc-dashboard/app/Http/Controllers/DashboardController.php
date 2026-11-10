@@ -56,10 +56,6 @@ class DashboardController extends Controller
             ->limit(10)
             ->get()
             ->map(function ($event) use ($zone) {
-                $minor = (int) $event->minor;
-                $badge = in_array($minor, [1, 38, 75], true) ? 'Fingerprint' : (in_array($minor, [13, 14, 15, 21, 22], true) ? 'PIN' : 'Access Granted');
-                $badgeClass = in_array($minor, [1, 38, 75], true) ? 'badge-success-pill' : (in_array($minor, [13, 14, 15, 21, 22], true) ? 'badge-warning-pill' : 'badge-neutral-pill');
-
                 $occurred = $event->occurred_at ? $event->occurred_at->copy()->timezone($zone) : null;
                 $timeFormatted = $occurred
                     ? ($occurred->isToday()
@@ -69,22 +65,41 @@ class DashboardController extends Controller
                             : $occurred->format('M d, H:i:s')))
                     : 'Just now';
 
+                $personName = $event->person_name ?: $event->personnel?->name;
+                $displayName = $personName ?: ($event->employee_no ? 'Employee #'.$event->employee_no : 'Door / Sensor Event');
+                $method = $event->methodLabel();
+                $outcome = $event->outcomeLabel();
+
+                $outcomeClass = match ($outcome) {
+                    'Granted' => 'badge-success',
+                    'Denied' => 'badge-danger',
+                    'Exit' => 'badge-info',
+                    default => 'badge-muted'
+                };
+
                 return [
                     'id' => $event->id,
                     'time' => $occurred?->toIso8601String(),
                     'time_formatted' => $timeFormatted,
                     'time_relative' => $occurred?->diffForHumans(),
-                    'name' => $event->person_name ?: $event->personnel?->name ?: 'Unknown',
-                    'employeeNoString' => $event->employee_no,
+                    'name' => $displayName,
+                    'employeeNoString' => $personName ? $event->employee_no : null,
                     'major' => $event->major,
                     'minor' => $event->minor,
+                    'method' => $method,
+                    'outcome' => $outcome,
+                    'outcome_class' => $outcomeClass,
                     'terminal_name' => $event->terminal?->name ?? 'Main Entrance',
-                    'badge' => $badge,
-                    'badge_class' => $badgeClass,
                 ];
             })->all();
         $formattedDateTime = now($zone)->format('D, d M Y | H:i');
         $terminalProgress = $totalTerminals > 0 ? max(20, min(100, ($onlineTerminals / $totalTerminals) * 100)) : 50;
+
+        $healthPercent = $totalTerminals > 0 ? (int) round(($onlineTerminals / $totalTerminals) * 100) : 100;
+        $healthTitle = $offlineTerminals === 0 ? 'System Operational' : ($offlineTerminals === 1 ? '1 Device Offline' : $offlineTerminals.' Devices Offline');
+        $healthSubtitle = $offlineTerminals === 0
+            ? 'All '.$onlineTerminals.' of '.$totalTerminals.' controllers active & connected.'
+            : $onlineTerminals.' of '.$totalTerminals.' devices online. Review offline units.';
 
         return compact(
             'totalTerminals',
@@ -97,7 +112,10 @@ class DashboardController extends Controller
             'chartDays',
             'chartMax',
             'formattedDateTime',
-            'terminalProgress'
+            'terminalProgress',
+            'healthPercent',
+            'healthTitle',
+            'healthSubtitle'
         );
     }
 }
