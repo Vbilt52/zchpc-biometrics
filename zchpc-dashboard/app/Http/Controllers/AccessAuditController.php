@@ -23,6 +23,23 @@ class AccessAuditController extends Controller
 
         $query = AccessAuditLog::query()->with(['door', 'terminal']);
 
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        // Scope logs for HR Officer to personnel/identity events if not full admin or audit officer
+        if ($user && $user->isHrOfficer() && ! $user->isFullAdmin() && ! $user->isAuditOfficer() && ! $user->isExecutive()) {
+            $query->where(function ($q): void {
+                $q->whereIn('action', [
+                    'personnel_created',
+                    'personnel_updated',
+                    'personnel_deleted',
+                    'user_created',
+                    'user_updated',
+                    'user_deployed',
+                ])->orWhere('subject_type', 'personnel');
+            });
+        }
+
         if (! empty($validated['action'])) {
             $query->where('action', $validated['action']);
         }

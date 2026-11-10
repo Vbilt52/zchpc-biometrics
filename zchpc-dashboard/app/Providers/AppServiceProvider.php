@@ -103,7 +103,13 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::define('access.enroll', fn (User $user): bool => $user->isFullAdmin());
 
-        Gate::define('access.audit', fn (User $user): bool => $user->isAuditOfficer() || $user->hasPermission('access.audit'));
+        Gate::define('access.audit', fn (User $user): bool => 
+            $user->isFullAdmin() || 
+            $user->isAuditOfficer() || 
+            $user->isExecutive() || 
+            $user->isHrOfficer() || 
+            $user->hasPermission('access.audit')
+        );
 
         Gate::define('users.manage', fn (User $user): bool => $user->isFullAdmin());
     }

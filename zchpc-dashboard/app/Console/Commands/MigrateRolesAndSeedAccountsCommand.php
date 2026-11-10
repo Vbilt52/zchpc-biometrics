@@ -112,3 +112,4 @@ class MigrateRolesAndSeedAccountsCommand extends Command
         return self::SUCCESS;
     }
 }
+

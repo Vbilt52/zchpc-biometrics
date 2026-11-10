@@ -248,3 +248,4 @@ class RoleBasedAccessControlTest extends TestCase
         $this->assertTrue($superAdmin->fresh()->is_active);
     }
 }
+

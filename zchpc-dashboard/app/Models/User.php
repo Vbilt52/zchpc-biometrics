@@ -212,7 +212,7 @@ class User extends Authenticatable
             'reports.executive' => $this->isExecutive() || $this->isAuditOfficer(),
             'reports.attendance' => $this->isExecutive() || $this->isHrOfficer() || $this->isAuditOfficer(),
 
-            'access.audit' => $this->isAuditOfficer(),
+            'access.audit' => $this->isAuditOfficer() || $this->isExecutive() || $this->isHrOfficer(),
 
             default => false,
         };
