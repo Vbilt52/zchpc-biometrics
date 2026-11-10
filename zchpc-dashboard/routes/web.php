@@ -177,6 +177,7 @@ Route::middleware(['auth', 'auth.session'])->group(function (): void {
         Route::post('sync/{personnel}', [AccessSyncController::class, 'syncOne'])->whereNumber('personnel')->name('sync.one');
 
         Route::get('audit', [AccessAuditController::class, 'index'])->name('audit.index');
+        Route::get('audit/download', [AccessAuditController::class, 'download'])->name('audit.download');
     });
 
     // Fingerprint attendance register and operator-confirmed logout records

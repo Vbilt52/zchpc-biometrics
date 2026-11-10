@@ -221,19 +221,9 @@
                     </a>
                 @endif
 
-                <div class="nav-section-divider">
-                    <span>SESSION</span>
-                </div>
-                <form action="{{ route('logout') }}" method="POST" style="margin:0;">
-                    @csrf
-                    <button type="submit" class="nav-item sidebar-nav-logout-btn" style="width:100%;border:none;background:transparent;cursor:pointer;text-align:left;color:#fca5a5;font:inherit;">
-                        <i class="fa-solid fa-right-from-bracket" style="color:#ef4444;"></i>
-                        <span>Logout</span>
-                    </button>
-                </form>
             </nav>
 
-            {{-- User profile block at bottom of sidebar --}}
+            {{-- User profile block at bottom of sidebar — single logout button --}}
             <div class="sidebar-user-block">
                 <div class="sidebar-user-avatar">{{ strtoupper(substr(auth()->user()->name ?? 'A', 0, 1)) }}</div>
                 <div class="sidebar-user-info">
@@ -269,24 +259,7 @@
                     </form>
                 </div>
 
-                <div class="top-header-right">
-                    @auth
-                        <div class="header-user-badge">
-                            <div class="header-user-avatar">{{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 1)) }}</div>
-                            <div class="header-user-details">
-                                <span class="header-user-name">{{ auth()->user()->name ?? 'User' }}</span>
-                                <span class="header-user-role">{{ auth()->user()?->roleLabel() ?? 'Staff' }}</span>
-                            </div>
-                        </div>
-                        <form action="{{ route('logout') }}" method="POST" style="margin:0;display:inline;">
-                            @csrf
-                            <button type="submit" class="header-logout-btn" title="Sign out of system">
-                                <i class="fa-solid fa-right-from-bracket"></i>
-                                <span>Logout</span>
-                            </button>
-                        </form>
-                    @endauth
-                </div>
+
             </header>
 
             <div class="content-wrapper">

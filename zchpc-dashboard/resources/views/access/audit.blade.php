@@ -13,7 +13,14 @@
             Append-only record of identity, door-permission, enrollment and deletion actions. Biometric templates are never logged.
         </p>
     </div>
-    <a href="{{ route('access.index') }}" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Users &amp; Access</a>
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+        <a href="{{ route('access.audit.download', request()->query()) }}"
+           class="btn btn-outline"
+           title="Download visible logs as CSV">
+            <i class="fa-solid fa-download"></i> Download CSV
+        </a>
+        <a href="{{ route('access.index') }}" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Users &amp; Access</a>
+    </div>
 </div>
 
 <div class="table-card" style="padding:1rem 1.25rem;margin-bottom:1rem;">
