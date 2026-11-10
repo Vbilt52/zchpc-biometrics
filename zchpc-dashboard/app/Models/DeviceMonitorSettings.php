@@ -40,6 +40,6 @@ class DeviceMonitorSettings extends Model
     /** Seconds without a successful check after which a device is stale. */
     public function staleAfterSeconds(): int
     {
-        return max(60, $this->interval_seconds * (int) config('devices.monitor.stale_after_intervals', 3));
+        return max(300, $this->interval_seconds * (int) config('devices.monitor.stale_after_intervals', 5));
     }
 }
