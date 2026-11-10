@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\FingerprintEnrollment;
 use App\Models\Terminal;
 use App\Models\User;
 use Carbon\Carbon;
@@ -47,6 +48,23 @@ class DeviceHealthService
                 'unsupported',
                 'This reader has no remote API, so its connectivity cannot be checked. Its door operation is local to the reader.',
                 null,
+                [],
+                true,
+            );
+        }
+
+        // If an active biometric enrollment is capturing on this terminal, do
+        // not disrupt it with concurrent health probes, and do not overwrite its
+        // status as offline or error while the sensor is busy.
+        if (FingerprintEnrollment::query()->where('terminal_id', $terminal->id)->active()->exists()) {
+            $terminal->forceFill(['last_checked_at' => now()])->save();
+
+            return $this->result(
+                true,
+                $terminal->status,
+                'busy',
+                'Device is currently capturing a biometric enrollment.',
+                $terminal->last_latency_ms,
                 [],
                 true,
             );
@@ -101,6 +119,10 @@ class DeviceHealthService
                     'last_error_at' => null,
                     'consecutive_failures' => 0,
                 ];
+
+                if (! empty($outcome['info']['model']) && empty($terminal->model)) {
+                    $attributes['model'] = (string) $outcome['info']['model'];
+                }
             } else {
                 $attributes += [
                     'last_error' => $outcome['message'],

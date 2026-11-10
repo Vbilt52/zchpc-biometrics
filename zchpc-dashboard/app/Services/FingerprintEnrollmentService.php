@@ -43,6 +43,17 @@ class FingerprintEnrollmentService
         }
 
         if (! $terminal->isOnline()) {
+            if ($terminal->status === Terminal::STATUS_ONLINE) {
+                try {
+                    app(DeviceHealthService::class)->check($terminal, 'enrollment');
+                    $terminal->refresh();
+                } catch (\Throwable) {
+                    // Ignore and fall through to isOnline check
+                }
+            }
+        }
+
+        if (! $terminal->isOnline()) {
             throw ValidationException::withMessages([
                 'terminal' => $terminal->name.' is offline. Refresh its status and try again, or use local enrollment.',
             ]);

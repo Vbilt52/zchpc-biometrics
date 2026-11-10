@@ -128,6 +128,14 @@ class AccessWizardController extends Controller
             return redirect()->route('access.wizard.device');
         }
 
+        if ($terminal->status === Terminal::STATUS_ONLINE && ! $terminal->isOnline()) {
+            try {
+                app(\App\Services\DeviceHealthService::class)->check($terminal, 'enrollment');
+                $terminal->refresh();
+            } catch (\Throwable) {
+            }
+        }
+
         $enrollments = $this->wizard->enrollments();
         $active = $enrollments->first(fn (FingerprintEnrollment $enrollment): bool => $enrollment->isActive());
 
