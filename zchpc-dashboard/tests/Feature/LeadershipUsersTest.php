@@ -18,12 +18,12 @@ class LeadershipUsersTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'username' => 'director',
-            'role' => User::ROLE_ADMIN,
+            'role' => User::ROLE_DIRECTOR,
         ]);
 
         $this->assertDatabaseHas('users', [
             'username' => 'deputy director',
-            'role' => User::ROLE_ADMIN,
+            'role' => User::ROLE_DEPUTY_DIRECTOR,
         ]);
 
         $this->assertTrue(Auth::attempt([

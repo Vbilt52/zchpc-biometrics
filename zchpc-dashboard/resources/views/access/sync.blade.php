@@ -25,6 +25,39 @@
     <div class="access-stat"><div class="value">{{ $stats['no_access'] }}</div><div class="label">People with no door access</div></div>
 </div>
 
+<!-- Synchronization State Legend -->
+<div style="background:#ffffff;border-radius:0.75rem;padding:1rem 1.25rem;border:1px solid #e2e8f0;margin-bottom:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+    <div style="font-weight:700;font-size:0.85rem;color:#0f172a;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.04em;">
+        Hardware Synchronization States
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:0.75rem;font-size:0.825rem;">
+        <div style="display:flex;align-items:center;gap:0.4rem;">
+            <span style="display:inline-block;padding:0.2rem 0.55rem;background:#ecfdf5;color:#047857;border-radius:4px;font-weight:700;border:1px solid #a7f3d0;">Synced</span>
+            <span style="color:#64748b;">Confirmed by terminal readback</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.4rem;">
+            <span style="display:inline-block;padding:0.2rem 0.55rem;background:#fef3c7;color:#92400e;border-radius:4px;font-weight:700;border:1px solid #fde68a;">Pending</span>
+            <span style="color:#64748b;">Queued for hardware dispatch</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.4rem;">
+            <span style="display:inline-block;padding:0.2rem 0.55rem;background:#fef2f2;color:#991b1b;border-radius:4px;font-weight:700;border:1px solid #fecaca;">Offline</span>
+            <span style="color:#64748b;">Device disconnected; retrying</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.4rem;">
+            <span style="display:inline-block;padding:0.2rem 0.55rem;background:#fee2e2;color:#b91c1c;border-radius:4px;font-weight:700;border:1px solid #fca5a5;">Failed</span>
+            <span style="color:#64748b;">Terminal rejected payload</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.4rem;">
+            <span style="display:inline-block;padding:0.2rem 0.55rem;background:#f1f5f9;color:#475569;border-radius:4px;font-weight:700;border:1px solid #cbd5e1;">Unsupported</span>
+            <span style="color:#64748b;">API unsupported on reader</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.4rem;">
+            <span style="display:inline-block;padding:0.2rem 0.55rem;background:#eff6ff;color:#1e40af;border-radius:4px;font-weight:700;border:1px solid #bfdbfe;">Verification Required</span>
+            <span style="color:#64748b;">Written; awaiting confirmation</span>
+        </div>
+    </div>
+</div>
+
 <div class="table-card" style="padding:1.25rem;margin-bottom:1.25rem;">
     <h3 style="margin:0 0 .65rem;font-size:.95rem;">Synchronization actions</h3>
     @can('access.manage')

@@ -20,6 +20,7 @@ use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\PersonnelController;
 use App\Http\Controllers\SuperFingerprintController;
 use App\Http\Controllers\TerminalController;
+use App\Http\Controllers\UserAccountController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function (): void {
@@ -34,9 +35,24 @@ Route::middleware(['auth', 'auth.session'])->group(function (): void {
     Route::put('/account/password', [AccountController::class, 'update'])->middleware('throttle:6,1')->name('account.password.update');
     Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
 
-    // Dashboard
+    // Dashboards
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/live-data', [DashboardController::class, 'liveData'])->name('dashboard.live-data');
+    Route::get('/dashboard/executive', [DashboardController::class, 'executive'])->name('dashboard.executive');
+    Route::get('/dashboard/hr', [DashboardController::class, 'hr'])->name('dashboard.hr');
+    Route::get('/dashboard/audit', [DashboardController::class, 'audit'])->name('dashboard.audit');
+
+    // Administration — User Accounts (Super Admin and Systems Engineer only)
+    Route::prefix('admin')->name('admin.')->middleware('can:users.manage')->group(function (): void {
+        Route::get('users', [UserAccountController::class, 'index'])->name('users.index');
+        Route::get('users/create', [UserAccountController::class, 'create'])->name('users.create');
+        Route::post('users', [UserAccountController::class, 'store'])->name('users.store');
+        Route::get('users/{user}/edit', [UserAccountController::class, 'edit'])->whereNumber('user')->name('users.edit');
+        Route::put('users/{user}', [UserAccountController::class, 'update'])->whereNumber('user')->name('users.update');
+        Route::post('users/{user}/toggle-status', [UserAccountController::class, 'toggleStatus'])->whereNumber('user')->name('users.toggle-status');
+        Route::post('users/{user}/reset-password', [UserAccountController::class, 'resetPassword'])->whereNumber('user')->name('users.reset-password');
+        Route::get('users/{user}/activity', [UserAccountController::class, 'activity'])->whereNumber('user')->name('users.activity');
+    });
 
     // Global Search
     Route::get('/search/live', [GlobalSearchController::class, 'search'])->name('search.live');
@@ -85,7 +101,10 @@ Route::middleware(['auth', 'auth.session'])->group(function (): void {
     Route::post('/personnel/{personnel}/sync', [PersonnelController::class, 'sync'])->middleware('can:access.manage')->name('personnel.sync');
 
     // Personnel — standard CRUD
-    Route::resource('personnel', PersonnelController::class)->middlewareFor(['create', 'store', 'edit', 'update', 'destroy'], 'can:access.manage');
+    Route::resource('personnel', PersonnelController::class)
+        ->middlewareFor(['create', 'store'], 'can:personnel.create')
+        ->middlewareFor(['edit', 'update'], 'can:personnel.edit')
+        ->middlewareFor(['destroy'], 'can:personnel.deactivate');
 
     // Personnel — Fingerprint Enrollment
     Route::post('/personnel/prime-enrollment', [PersonnelController::class, 'primeEnrollment'])->middleware('can:access.manage')->name('personnel.prime.enrollment');

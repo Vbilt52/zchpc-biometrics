@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccessAuditLog;
 use App\Models\AccessGroup;
 use App\Models\Personnel;
 use App\Models\Terminal;
+use App\Services\AccessAuditLogger;
+use App\Services\DeviceActivityLogger;
 use App\Services\PendingTerminalSyncService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -26,7 +29,13 @@ class PersonnelController extends Controller
     public function __construct(
         private readonly DeviceManager $deviceManager,
         private readonly PendingTerminalSyncService $pendingSyncs,
+        private readonly ?AccessAuditLogger $audit = null,
     ) {}
+
+    private function audit(): AccessAuditLogger
+    {
+        return $this->audit ?? app(AccessAuditLogger::class);
+    }
 
     // =========================================================================
     // LISTING
@@ -97,12 +106,22 @@ class PersonnelController extends Controller
             'terminal_ids.*' => ['integer', Rule::exists('terminals', 'id')->where('integration', Terminal::INTEGRATION_HIKVISION_ISAPI)],
         ]);
 
-        $doors = isset($validated['door_right']) ? array_map('intval', explode(',', $validated['door_right'])) : ($validated['doors'] ?? [1]);
-        if (array_filter($doors, fn ($door) => $door < 1 || $door > 64)) {
-            throw ValidationException::withMessages(['door_right' => 'Device channels must be between 1 and 64.']);
+        $isFullAdmin = $request->user()?->isFullAdmin() ?? true;
+        if (! $isFullAdmin && $request->user()?->isHrOfficer()) {
+            // HR Officer creates the personnel record without physical door permissions
+            $doorRight = null;
+            $rightPlan = null;
+            $terminalIds = [];
+        } else {
+            $doors = isset($validated['door_right']) ? array_map('intval', explode(',', $validated['door_right'])) : ($validated['doors'] ?? [1]);
+            if (array_filter($doors, fn ($door) => $door < 1 || $door > 64)) {
+                throw ValidationException::withMessages(['door_right' => 'Device channels must be between 1 and 64.']);
+            }
+            $doorRight = implode(',', $doors);
+            $rightPlan = array_map(fn ($d) => ['doorNo' => (int) $d, 'planTemplateNo' => '1'], $doors);
+            $terminalIds = $request->input('terminal_ids', []);
         }
-        $doorRight = implode(',', $doors);
-        $rightPlan = array_map(fn ($d) => ['doorNo' => (int) $d, 'planTemplateNo' => '1'], $doors);
+
         $accessGroup = AccessGroup::findOrFail($validated['access_group_id']);
 
         $person = Personnel::create([
@@ -120,12 +139,24 @@ class PersonnelController extends Controller
             'department' => $accessGroup->name,
         ]);
 
-        // Push to selected terminals
-        $terminalIds = $request->input('terminal_ids', []);
+        $this->audit()->log(
+            action: 'personnel_created',
+            outcome: AccessAuditLog::OUTCOME_INFO,
+            description: "Registered personnel record for {$person->name} ({$person->employee_no}) in department {$person->department}.",
+            context: ['employee_no' => $person->employee_no, 'department' => $person->department],
+            actor: $request->user(),
+            personnel: $person,
+            ipAddress: DeviceActivityLogger::requestIp(),
+        );
 
-        $syncResult = $this->pendingSyncs->save($person, [], $terminalIds);
-        $pushed = $syncResult['synced'];
-        $pending = $syncResult['pending'];
+        if (! empty($terminalIds)) {
+            $syncResult = $this->pendingSyncs->save($person, [], $terminalIds);
+            $pushed = $syncResult['synced'];
+            $pending = $syncResult['pending'];
+        } else {
+            $pushed = 0;
+            $pending = 0;
+        }
 
         $msg = "Person '{$person->name}' saved successfully.";
         if ($pushed > 0) {
@@ -133,8 +164,10 @@ class PersonnelController extends Controller
             $msg .= ' You can now enroll a fingerprint from this page.';
         } elseif ($pending > 0) {
             $msg .= " {$pending} device assignment(s) are pending confirmation — retry synchronization, then enroll a fingerprint.";
-        } else {
+        } elseif ($isFullAdmin) {
             $msg .= ' No devices were selected. Use Edit Person to assign devices, then enroll a fingerprint here.';
+        } else {
+            $msg .= ' Personnel details registered. Physical door access permissions must be authorized by Systems Engineering.';
         }
 
         // Redirect to the person's profile so the admin can immediately enroll a fingerprint.
@@ -409,12 +442,22 @@ class PersonnelController extends Controller
             'terminal_ids.*' => ['integer', Rule::exists('terminals', 'id')->where('integration', Terminal::INTEGRATION_HIKVISION_ISAPI)],
         ]);
 
-        $doors = isset($validated['door_right']) ? array_map('intval', explode(',', $validated['door_right'])) : ($validated['doors'] ?? [1]);
-        if (array_filter($doors, fn ($door) => $door < 1 || $door > 64)) {
-            throw ValidationException::withMessages(['door_right' => 'Device channels must be between 1 and 64.']);
+        $isFullAdmin = $request->user()?->isFullAdmin() ?? true;
+        if (! $isFullAdmin && $request->user()?->isHrOfficer()) {
+            // HR Officer preserves existing terminal and door permissions
+            $doorRight = $personnel->door_right;
+            $rightPlan = $personnel->right_plan;
+            $terminalIds = $personnel->terminals()->wherePivot('access_allowed', true)->pluck('terminals.id')->all();
+        } else {
+            $doors = isset($validated['door_right']) ? array_map('intval', explode(',', $validated['door_right'])) : ($validated['doors'] ?? [1]);
+            if (array_filter($doors, fn ($door) => $door < 1 || $door > 64)) {
+                throw ValidationException::withMessages(['door_right' => 'Device channels must be between 1 and 64.']);
+            }
+            $doorRight = implode(',', $doors);
+            $rightPlan = array_map(fn ($d) => ['doorNo' => (int) $d, 'planTemplateNo' => '1'], $doors);
+            $terminalIds = $validated['terminal_ids'] ?? [];
         }
-        $doorRight = implode(',', $doors);
-        $rightPlan = array_map(fn ($d) => ['doorNo' => (int) $d, 'planTemplateNo' => '1'], $doors);
+
         $accessGroup = AccessGroup::findOrFail($validated['access_group_id']);
 
         $result = $this->pendingSyncs->save($personnel, [
@@ -430,7 +473,17 @@ class PersonnelController extends Controller
             'added_at' => isset($validated['added_at']) ? Carbon::parse($validated['added_at'], config('attendance.timezone'))->utc() : ($personnel->added_at ?? now()),
             'access_group_id' => $accessGroup->id,
             'department' => $accessGroup->name,
-        ], $validated['terminal_ids'] ?? []);
+        ], $terminalIds);
+
+        $this->audit()->log(
+            action: 'personnel_updated',
+            outcome: AccessAuditLog::OUTCOME_INFO,
+            description: "Updated personnel record for {$personnel->name} ({$personnel->employee_no}). Dispatched synchronization to assigned controllers.",
+            context: ['employee_no' => $personnel->employee_no, 'terminals_count' => count($terminalIds)],
+            actor: $request->user(),
+            personnel: $personnel,
+            ipAddress: DeviceActivityLogger::requestIp(),
+        );
 
         $synced = $result['synced'];
         $pending = $result['pending'];
@@ -444,8 +497,6 @@ class PersonnelController extends Controller
         }
 
         return redirect()->route('personnel.show', $personnel)->with('success', $msg);
-
-
     }
 
     // =========================================================================
@@ -454,11 +505,24 @@ class PersonnelController extends Controller
 
     public function destroy(Personnel $personnel): RedirectResponse
     {
+        $employeeNo = $personnel->employee_no;
+        $name = $personnel->name;
+
         try {
             $this->pendingSyncs->remove($personnel);
         } catch (\Throwable $error) {
             return back()->with('error', 'Local record retained. Device removal is not complete: '.$error->getMessage());
         }
+
+        $this->audit()->log(
+            action: 'personnel_deleted',
+            outcome: AccessAuditLog::OUTCOME_WARNING,
+            description: "Deactivated and removed personnel record for {$name} ({$employeeNo}).",
+            context: ['employee_no' => $employeeNo],
+            actor: request()->user(),
+            ipAddress: DeviceActivityLogger::requestIp(),
+            subjectLabel: $name,
+        );
 
         return redirect()->route('personnel.index')->with('success', 'Person removed after device confirmation.');
     }

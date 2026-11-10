@@ -32,7 +32,66 @@ class UserFactory extends Factory
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
             'role' => User::ROLE_ADMIN,
+            'office' => 'ZCHPC Operations',
+            'is_active' => true,
+            'must_change_password' => false,
         ];
+    }
+
+    public function superAdmin(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => User::ROLE_SUPER_ADMIN,
+            'office' => 'Super Administrator / ICT',
+        ]);
+    }
+
+    public function systemsEngineer(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => User::ROLE_SYSTEMS_ENGINEER,
+            'office' => 'Systems Engineering & Infrastructure',
+        ]);
+    }
+
+    public function director(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => User::ROLE_DIRECTOR,
+            'office' => 'Executive Directorate',
+        ]);
+    }
+
+    public function deputyDirector(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => User::ROLE_DEPUTY_DIRECTOR,
+            'office' => 'Executive Directorate',
+        ]);
+    }
+
+    public function hrOfficer(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => User::ROLE_HR_OFFICER,
+            'office' => 'Human Resources Department',
+        ]);
+    }
+
+    public function auditOfficer(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => User::ROLE_AUDIT_OFFICER,
+            'office' => 'Internal Audit & Compliance',
+        ]);
+    }
+
+    public function viewer(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => User::ROLE_VIEWER,
+            'office' => 'General Operations',
+        ]);
     }
 
     /**

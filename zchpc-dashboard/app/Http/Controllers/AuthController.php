@@ -31,7 +31,46 @@ class AuthController extends Controller
             return back()->onlyInput('login')->withErrors(['login' => 'The provided credentials are incorrect.']);
         }
 
+        /** @var User $user */
+        $user = Auth::user();
+
+        // Enforce account active status
+        if ($user->is_active === false) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return back()->onlyInput('login')->withErrors([
+                'login' => 'This account has been deactivated. Please contact the Systems Engineer or Super Admin.',
+            ]);
+        }
+
+        // Record login audit metrics
+        $user->update([
+            'last_login_at' => now(),
+            'last_login_ip' => $request->ip(),
+        ]);
+
         $request->session()->regenerate();
+
+        // Prompt temporary password recipients to update their credentials
+        if ($user->must_change_password) {
+            return redirect()->route('account.password.edit')
+                ->with('warning', 'Please update your temporary password before accessing the system.');
+        }
+
+        // Dedicated initial landing by role
+        if (! $user->isFullAdmin()) {
+            if ($user->isDirector() || $user->isDeputyDirector()) {
+                return redirect()->route('dashboard.executive');
+            }
+            if ($user->isHrOfficer()) {
+                return redirect()->route('dashboard.hr');
+            }
+            if ($user->isAuditOfficer()) {
+                return redirect()->route('dashboard.audit');
+            }
+        }
 
         return redirect()->intended(route('dashboard'));
     }

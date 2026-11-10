@@ -28,6 +28,7 @@
         <div><label for="end-time">Access expires</label><input type="datetime-local" id="end-time" name="end_time" required value="{{ old('end_time', ($personnel->end_time ?? now()->addYear())->copy()->timezone($zone)->format('Y-m-d\TH:i')) }}"></div>
     </div>
 </div>
+@can('access.manage')
 <div class="table-card" style="padding:1.5rem;margin-bottom:1.25rem;">
     <h2>Devices this person may access</h2>
     <p class="form-help">Select only the permitted devices. For example, select Main Entrance for Prince and leave Server Room unchecked. Unchecking a device requests revocation there. Offline changes remain pending until confirmed.</p>
@@ -54,6 +55,15 @@
         <label for="door-right">Door channels (comma separated)</label><input id="door-right" name="door_right" value="{{ old('door_right', $personnel->door_right ?? '1') }}" pattern="[0-9]+(,[0-9]+)*" required>
     </details>
 </div>
+@else
+<div class="table-card" style="padding:1.5rem;margin-bottom:1.25rem;background:#f8fafc;border:1px solid #e2e8f0;">
+    <h3 style="font-size:1rem;color:#0f172a;margin-bottom:0.35rem;"><i class="fa-solid fa-shield-halved" style="color:#0c70a2;"></i> Physical Door Access Control</h3>
+    <p class="form-help" style="margin:0;">
+        Physical terminal access and door authorization rules are managed by Systems Engineering and Super Admin. 
+        Registering or updating personnel here saves their organizational identity without automatically unlocking physical facility doors.
+    </p>
+</div>
+@endcan
 <style>
     .person-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1rem; margin-top:1rem; }
     .person-fields label, details > label { display:block; font-size:.85rem; font-weight:600; margin-bottom:.35rem; }

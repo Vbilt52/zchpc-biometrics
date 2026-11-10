@@ -2,12 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccessAuditLog;
 use App\Models\AccessEvent;
+use App\Models\AccessGroup;
+use App\Models\DeviceAlert;
+use App\Models\DeviceSyncEvent;
 use App\Models\Door;
+use App\Models\FingerprintEnrollment;
+use App\Models\PendingTerminalSync;
 use App\Models\Personnel;
 use App\Models\Terminal;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\View\View;
 use Shaykhnazar\HikvisionIsapi\Client\DeviceManager;
 
 class DashboardController extends Controller
@@ -17,6 +25,126 @@ class DashboardController extends Controller
         $data = $this->gatherDashboardData();
 
         return view('dashboard', $data);
+    }
+
+    public function executive(): View
+    {
+        Gate::authorize('dashboards.executive');
+
+        $zone = config('attendance.timezone');
+        $todayStart = now($zone)->startOfDay()->utc();
+
+        $totalPersonnel = Personnel::count();
+        $activePersonnel = Personnel::where('status', Personnel::STATUS_ACTIVE)->where('valid_enabled', true)->count();
+        $departments = AccessGroup::withCount('personnel')->orderBy('name')->get();
+
+        // Attendance metrics
+        $todayEvents = AccessEvent::where('occurred_at', '>=', $todayStart)->get();
+        $uniquePresentToday = $todayEvents->whereNotNull('employee_no')->pluck('employee_no')->unique()->count();
+
+        // High security zone entries (Server Room = Door 2, UPS Room = Door 3)
+        $serverRoomEntries = AccessEvent::where('occurred_at', '>=', $todayStart)
+            ->where(function ($q): void {
+                $q->where('terminal_id', 2)->orWhere('raw_payload->doorNo', 2);
+            })->count();
+
+        $upsRoomEntries = AccessEvent::where('occurred_at', '>=', $todayStart)
+            ->where(function ($q): void {
+                $q->where('terminal_id', 3)->orWhere('raw_payload->doorNo', 3);
+            })->count();
+
+        $failedAttemptsToday = AccessEvent::where('occurred_at', '>=', $todayStart)->failedAttempt()->count();
+        $totalAccessToday = $todayEvents->count();
+
+        // Department attendance breakdown
+        $deptStats = $departments->map(function ($dept) use ($todayEvents): array {
+            $deptEmployees = Personnel::where('access_group_id', $dept->id)->pluck('employee_no')->filter()->all();
+            $presentCount = $todayEvents->whereIn('employee_no', $deptEmployees)->pluck('employee_no')->unique()->count();
+            $totalInDept = count($deptEmployees);
+            $rate = $totalInDept > 0 ? (int) round(($presentCount / $totalInDept) * 100) : 0;
+
+            return [
+                'name' => $dept->name,
+                'total' => $totalInDept,
+                'present' => $presentCount,
+                'rate' => $rate,
+            ];
+        });
+
+        // Offline devices / security alerts
+        $offlineTerminals = Terminal::where('status', Terminal::STATUS_OFFLINE)->count();
+        $openAlerts = DeviceAlert::unacknowledged()->count();
+
+        return view('dashboard.executive', compact(
+            'totalPersonnel',
+            'activePersonnel',
+            'departments',
+            'uniquePresentToday',
+            'totalAccessToday',
+            'serverRoomEntries',
+            'upsRoomEntries',
+            'failedAttemptsToday',
+            'deptStats',
+            'offlineTerminals',
+            'openAlerts'
+        ));
+    }
+
+    public function hr(): View
+    {
+        Gate::authorize('dashboards.hr');
+
+        $zone = config('attendance.timezone');
+        $todayStart = now($zone)->startOfDay()->utc();
+
+        $totalPersonnel = Personnel::count();
+        $activePersonnel = Personnel::where('status', Personnel::STATUS_ACTIVE)->where('valid_enabled', true)->count();
+        $enrolledFingerprints = FingerprintEnrollment::where('status', FingerprintEnrollment::STATUS_CONFIRMED)
+            ->distinct()->count('personnel_id');
+        $drafts = Personnel::where('status', Personnel::STATUS_DRAFT)->count();
+
+        $pendingSyncs = PendingTerminalSync::with(['personnel', 'terminal'])->limit(15)->get();
+        $pendingSyncsCount = PendingTerminalSync::count();
+
+        $departments = AccessGroup::withCount('personnel')->orderBy('name')->get();
+
+        $recentClockIns = AccessEvent::where('occurred_at', '>=', $todayStart)
+            ->whereNotNull('employee_no')
+            ->orderBy('occurred_at', 'asc')
+            ->limit(20)
+            ->get();
+
+        return view('dashboard.hr', compact(
+            'totalPersonnel',
+            'activePersonnel',
+            'enrolledFingerprints',
+            'drafts',
+            'pendingSyncs',
+            'pendingSyncsCount',
+            'departments',
+            'recentClockIns'
+        ));
+    }
+
+    public function audit(): View
+    {
+        Gate::authorize('dashboards.audit');
+
+        $zone = config('attendance.timezone');
+        $todayStart = now($zone)->startOfDay()->utc();
+
+        $stats = [
+            'audit_today' => AccessAuditLog::where('created_at', '>=', $todayStart)->count(),
+            'sync_events_today' => DeviceSyncEvent::where('created_at', '>=', $todayStart)->count(),
+            'failed_syncs' => DeviceSyncEvent::where('created_at', '>=', $todayStart)->where('status', DeviceSyncEvent::STATUS_FAILED)->count(),
+            'failed_access_today' => AccessEvent::where('occurred_at', '>=', $todayStart)->failedAttempt()->count(),
+        ];
+
+        $recentAudits = AccessAuditLog::with(['door', 'terminal'])->latest('id')->limit(25)->get();
+        $recentSyncs = DeviceSyncEvent::with('terminal')->latest('id')->limit(20)->get();
+        $recentAccessEvents = AccessEvent::with('terminal')->orderByDesc('occurred_at')->limit(20)->get();
+
+        return view('dashboard.audit', compact('stats', 'recentAudits', 'recentSyncs', 'recentAccessEvents'));
     }
 
     public function liveData(): JsonResponse

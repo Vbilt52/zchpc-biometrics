@@ -27,3 +27,4 @@ return new class extends Migration
         // Ghost doors should not be restored.
     }
 };
+

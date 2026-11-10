@@ -24,65 +24,210 @@
             </div>
             
             <nav class="sidebar-nav">
-                <a href="/" class="nav-item {{ request()->is('/') ? 'active' : '' }}">
-                    <i class="fa-solid fa-table-cells-large"></i>
-                    <span>Dashboard</span>
-                </a>
-                <a href="{{ route('devices.index') }}" class="nav-item {{ request()->routeIs('devices.*') && !request()->routeIs('devices.alerts.*') && !request()->routeIs('devices.activity.*') ? 'active' : '' }}">
-                    <i class="fa-solid fa-server"></i>
-                    <span>Devices</span>
-                </a>
-                <a href="{{ route('devices.alerts.index') }}" class="nav-item {{ request()->routeIs('devices.alerts.*') ? 'active' : '' }}">
-                    <i class="fa-regular fa-bell"></i>
-                    <span>Device Alerts</span>
-                    <span class="nav-pill-badge-red">{{ $openDeviceAlertCount ?? 2 }}</span>
-                </a>
-                <a href="{{ route('devices.activity.index') }}" class="nav-item {{ request()->routeIs('devices.activity.*') ? 'active' : '' }}">
-                    <i class="fa-solid fa-chart-line"></i>
-                    <span>Device Activity</span>
-                    <i class="fa-solid fa-chevron-right nav-chevron"></i>
-                </a>
-                <a href="{{ route('terminals.index') }}" class="nav-item {{ request()->routeIs('terminals.*') ? 'active' : '' }}">
-                    <i class="fa-solid fa-fingerprint"></i>
-                    <span>Terminals</span>
-                </a>
-                <a href="{{ route('personnel.index') }}" class="nav-item {{ request()->routeIs('personnel.*') ? 'active' : '' }}">
-                    <i class="fa-solid fa-users"></i>
-                    <span>Personnel</span>
-                </a>
+                @php
+                    $currentUser = auth()->user();
+                @endphp
 
-                <div class="nav-section-divider">
-                    <span>ACCESS CONTROL</span>
-                </div>
+                @if($currentUser && $currentUser->isFullAdmin())
+                    {{-- Super Admin & Systems Engineer: Full Access to Every Module and Dashboard --}}
+                    <div class="nav-section-divider">
+                        <span>DASHBOARDS</span>
+                    </div>
+                    <a href="/" class="nav-item {{ request()->is('/') ? 'active' : '' }}">
+                        <i class="fa-solid fa-table-cells-large"></i>
+                        <span>Main Overview</span>
+                    </a>
+                    <a href="{{ route('dashboard.executive') }}" class="nav-item {{ request()->routeIs('dashboard.executive') ? 'active' : '' }}">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Executive Oversight</span>
+                    </a>
+                    <a href="{{ route('dashboard.hr') }}" class="nav-item {{ request()->routeIs('dashboard.hr') ? 'active' : '' }}">
+                        <i class="fa-solid fa-users-viewfinder"></i>
+                        <span>HR Workforce</span>
+                    </a>
+                    <a href="{{ route('dashboard.audit') }}" class="nav-item {{ request()->routeIs('dashboard.audit') ? 'active' : '' }}">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Audit &amp; Security</span>
+                    </a>
 
-                <a href="{{ route('access.index') }}" class="nav-item {{ request()->is('access') || (request()->is('access/users*') && ! request()->is('access/users/create*')) ? 'active' : '' }}">
-                    <i class="fa-solid fa-user-shield"></i>
-                    <span>Users &amp; Access</span>
-                </a>
-                <a href="{{ route('access.users.create') }}" class="nav-item {{ request()->is('access/users/create*') ? 'active' : '' }}">
-                    <i class="fa-solid fa-user-plus"></i>
-                    <span>Add New User</span>
-                </a>
-                <a href="{{ route('access.doors.index') }}" class="nav-item {{ request()->is('access/doors*') ? 'active' : '' }}">
-                    <i class="fa-solid fa-door-closed"></i>
-                    <span>Doors &amp; Controllers</span>
-                </a>
-                <a href="{{ route('access.matrix.index') }}" class="nav-item {{ request()->is('access/matrix*') ? 'active' : '' }}">
-                    <i class="fa-solid fa-table-cells"></i>
-                    <span>Access Matrix</span>
-                </a>
-                <a href="{{ route('access.sync.index') }}" class="nav-item {{ request()->is('access/sync*') ? 'active' : '' }}">
-                    <i class="fa-solid fa-arrows-rotate"></i>
-                    <span>Device Sync</span>
-                </a>
+                    <div class="nav-section-divider">
+                        <span>HARDWARE &amp; DEVICES</span>
+                    </div>
+                    <a href="{{ route('devices.index') }}" class="nav-item {{ request()->routeIs('devices.*') && !request()->routeIs('devices.alerts.*') && !request()->routeIs('devices.activity.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-server"></i>
+                        <span>Devices</span>
+                    </a>
+                    <a href="{{ route('devices.alerts.index') }}" class="nav-item {{ request()->routeIs('devices.alerts.*') ? 'active' : '' }}">
+                        <i class="fa-regular fa-bell"></i>
+                        <span>Device Alerts</span>
+                        <span class="nav-pill-badge-red">{{ $openDeviceAlertCount ?? 0 }}</span>
+                    </a>
+                    <a href="{{ route('devices.activity.index') }}" class="nav-item {{ request()->routeIs('devices.activity.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-wave-square"></i>
+                        <span>Device Activity</span>
+                    </a>
+                    <a href="{{ route('terminals.index') }}" class="nav-item {{ request()->routeIs('terminals.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-fingerprint"></i>
+                        <span>Terminals</span>
+                    </a>
+
+                    <div class="nav-section-divider">
+                        <span>ACCESS CONTROL</span>
+                    </div>
+                    <a href="{{ route('personnel.index') }}" class="nav-item {{ request()->routeIs('personnel.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-users"></i>
+                        <span>Personnel</span>
+                    </a>
+                    <a href="{{ route('access.index') }}" class="nav-item {{ request()->is('access') || (request()->is('access/users*') && ! request()->is('access/users/create*')) ? 'active' : '' }}">
+                        <i class="fa-solid fa-user-shield"></i>
+                        <span>Users &amp; Access</span>
+                    </a>
+                    <a href="{{ route('access.users.create') }}" class="nav-item {{ request()->is('access/users/create*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-user-plus"></i>
+                        <span>Add New User</span>
+                    </a>
+                    <a href="{{ route('access.doors.index') }}" class="nav-item {{ request()->is('access/doors*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-door-closed"></i>
+                        <span>Doors &amp; Controllers</span>
+                    </a>
+                    <a href="{{ route('access.matrix.index') }}" class="nav-item {{ request()->is('access/matrix*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-table-cells"></i>
+                        <span>Access Matrix</span>
+                    </a>
+                    <a href="{{ route('access.sync.index') }}" class="nav-item {{ request()->is('access/sync*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span>Device Sync</span>
+                    </a>
+
+                    <div class="nav-section-divider">
+                        <span>RECORDS &amp; AUDIT</span>
+                    </div>
+                    <a href="{{ route('attendance.index') }}" class="nav-item {{ request()->routeIs('attendance.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-clipboard-user"></i>
+                        <span>Attendance</span>
+                    </a>
+                    <a href="{{ route('events.index') }}" class="nav-item {{ request()->routeIs('events.index') ? 'active' : '' }}">
+                        <i class="fa-solid fa-list-check"></i>
+                        <span>Access Events</span>
+                    </a>
+                    <a href="{{ route('access.audit.index') }}" class="nav-item {{ request()->routeIs('access.audit.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        <span>System Audit Logs</span>
+                    </a>
+
+                    <div class="nav-section-divider">
+                        <span>ADMINISTRATION</span>
+                    </div>
+                    <a href="{{ route('admin.users.index') }}" class="nav-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-users-gear"></i>
+                        <span>User Accounts</span>
+                    </a>
+
+                @elseif($currentUser && ($currentUser->isDirector() || $currentUser->isDeputyDirector()))
+                    {{-- Director & Deputy Director Navigation --}}
+                    <div class="nav-section-divider">
+                        <span>EXECUTIVE</span>
+                    </div>
+                    <a href="{{ route('dashboard.executive') }}" class="nav-item {{ request()->routeIs('dashboard.executive') ? 'active' : '' }}">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Executive Dashboard</span>
+                    </a>
+                    <a href="{{ route('attendance.index') }}" class="nav-item {{ request()->routeIs('attendance.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-clipboard-user"></i>
+                        <span>Attendance Reports</span>
+                    </a>
+                    <a href="{{ route('personnel.index') }}" class="nav-item {{ request()->routeIs('personnel.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-users"></i>
+                        <span>Personnel Directory</span>
+                    </a>
+                    <a href="{{ route('events.index') }}" class="nav-item {{ request()->routeIs('events.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Access Security Events</span>
+                    </a>
+                    <a href="{{ route('access.audit.index') }}" class="nav-item {{ request()->routeIs('access.audit.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        <span>Audit Oversight</span>
+                    </a>
+
+                @elseif($currentUser && $currentUser->isHrOfficer())
+                    {{-- HR Officer Navigation --}}
+                    <div class="nav-section-divider">
+                        <span>WORKFORCE</span>
+                    </div>
+                    <a href="{{ route('dashboard.hr') }}" class="nav-item {{ request()->routeIs('dashboard.hr') ? 'active' : '' }}">
+                        <i class="fa-solid fa-users-viewfinder"></i>
+                        <span>HR Dashboard</span>
+                    </a>
+                    <a href="{{ route('personnel.index') }}" class="nav-item {{ request()->routeIs('personnel.index') || request()->routeIs('personnel.edit') || request()->routeIs('personnel.show') ? 'active' : '' }}">
+                        <i class="fa-solid fa-users"></i>
+                        <span>Personnel Directory</span>
+                    </a>
+                    <a href="{{ route('personnel.create') }}" class="nav-item {{ request()->routeIs('personnel.create') ? 'active' : '' }}">
+                        <i class="fa-solid fa-user-plus"></i>
+                        <span>Register Personnel</span>
+                    </a>
+                    <a href="{{ route('attendance.index') }}" class="nav-item {{ request()->routeIs('attendance.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-clipboard-user"></i>
+                        <span>Attendance Records</span>
+                    </a>
+                    <a href="{{ route('access.sync.index') }}" class="nav-item {{ request()->routeIs('access.sync.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span>Personnel Sync Status</span>
+                    </a>
+
+                @elseif($currentUser && $currentUser->isAuditOfficer())
+                    {{-- Audit Officer Navigation --}}
+                    <div class="nav-section-divider">
+                        <span>AUDIT &amp; COMPLIANCE</span>
+                    </div>
+                    <a href="{{ route('dashboard.audit') }}" class="nav-item {{ request()->routeIs('dashboard.audit') ? 'active' : '' }}">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Audit Dashboard</span>
+                    </a>
+                    <a href="{{ route('access.audit.index') }}" class="nav-item {{ request()->routeIs('access.audit.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        <span>System Change Logs</span>
+                    </a>
+                    <a href="{{ route('events.index') }}" class="nav-item {{ request()->routeIs('events.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-list-check"></i>
+                        <span>Access Events</span>
+                    </a>
+                    <a href="{{ route('attendance.index') }}" class="nav-item {{ request()->routeIs('attendance.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-clipboard-user"></i>
+                        <span>Attendance Records</span>
+                    </a>
+                    <a href="{{ route('personnel.index') }}" class="nav-item {{ request()->routeIs('personnel.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-users"></i>
+                        <span>Personnel Directory</span>
+                    </a>
+                    <a href="{{ route('access.sync.index') }}" class="nav-item {{ request()->routeIs('access.sync.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span>Device Sync Logs</span>
+                    </a>
+
+                @else
+                    {{-- General Viewer Navigation --}}
+                    <a href="/" class="nav-item {{ request()->is('/') ? 'active' : '' }}">
+                        <i class="fa-solid fa-table-cells-large"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="{{ route('personnel.index') }}" class="nav-item {{ request()->routeIs('personnel.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-users"></i>
+                        <span>Personnel Directory</span>
+                    </a>
+                    <a href="{{ route('attendance.index') }}" class="nav-item {{ request()->routeIs('attendance.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-clipboard-user"></i>
+                        <span>Attendance</span>
+                    </a>
+                @endif
             </nav>
 
-            {{-- Admin profile + sign-out at bottom of sidebar --}}
+            {{-- User profile block at bottom of sidebar --}}
             <div class="sidebar-user-block">
                 <div class="sidebar-user-avatar">{{ strtoupper(substr(auth()->user()->name ?? 'A', 0, 1)) }}</div>
                 <div class="sidebar-user-info">
                     <span class="sidebar-user-name">{{ auth()->user()->name ?? 'Admin' }}</span>
-                    <span class="sidebar-user-role">Administrator</span>
+                    <span class="sidebar-user-role">{{ auth()->user()?->roleLabel() ?? 'Administrator' }}</span>
                 </div>
                 <form action="{{ route('logout') }}" method="POST" style="margin:0;">
                     @csrf

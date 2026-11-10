@@ -22,6 +22,23 @@
         </div>
     </div>
 
+    @if(auth()->user()?->isFullAdmin())
+        <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+            <a href="/" style="padding:0.45rem 1rem;background:#0c70a2;color:#ffffff;border-radius:0.5rem;font-weight:600;font-size:0.85rem;text-decoration:none;display:inline-flex;align-items:center;gap:0.4rem;box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+                <i class="fa-solid fa-table-cells-large"></i> Main Overview
+            </a>
+            <a href="{{ route('dashboard.executive') }}" style="padding:0.45rem 1rem;background:#ffffff;color:#475569;border:1px solid #cbd5e1;border-radius:0.5rem;font-weight:600;font-size:0.85rem;text-decoration:none;display:inline-flex;align-items:center;gap:0.4rem;">
+                <i class="fa-solid fa-chart-line"></i> Executive Oversight
+            </a>
+            <a href="{{ route('dashboard.hr') }}" style="padding:0.45rem 1rem;background:#ffffff;color:#475569;border:1px solid #cbd5e1;border-radius:0.5rem;font-weight:600;font-size:0.85rem;text-decoration:none;display:inline-flex;align-items:center;gap:0.4rem;">
+                <i class="fa-solid fa-users-viewfinder"></i> HR Workforce
+            </a>
+            <a href="{{ route('dashboard.audit') }}" style="padding:0.45rem 1rem;background:#ffffff;color:#475569;border:1px solid #cbd5e1;border-radius:0.5rem;font-weight:600;font-size:0.85rem;text-decoration:none;display:inline-flex;align-items:center;gap:0.4rem;">
+                <i class="fa-solid fa-shield-halved"></i> Audit &amp; Compliance
+            </a>
+        </div>
+    @endif
+
     <!-- Row 1: KPI Summary Cards -->
     <div class="kpi-cards-grid">
         <!-- Active Terminals Card -->

@@ -47,8 +47,11 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
 
+        $this->defineRoleHierarchy();
         $this->defineDevicePermissions();
         $this->defineAccessPermissions();
+        $this->definePersonnelPermissions();
+        $this->defineDashboardPermissions();
         $this->defineRateLimits();
 
         // Unacknowledged device alerts are shown in the sidebar on every page.
@@ -61,12 +64,22 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
+     * The Systems Engineer and Super Admin have unconditional full access
+     * to every gate, policy, and module across the entire suite.
+     */
+    private function defineRoleHierarchy(): void
+    {
+        Gate::before(function (User $user, string $ability) {
+            if ($user->isFullAdmin()) {
+                return true;
+            }
+
+            return null; // Fall through to standard gate checks
+        });
+    }
+
+    /**
      * Device-management permissions.
-     *
-     * Every existing account is an administrator, so installing this change
-     * grants and removes nothing. Accounts deliberately set to `operator` can
-     * view devices and run read-only diagnostics; only administrators can
-     * refresh, reconnect, change monitoring settings or acknowledge alerts.
      */
     private function defineDevicePermissions(): void
     {
@@ -74,27 +87,57 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::define('devices.diagnostics', fn (User $user): bool => $user->canOperateDevices());
 
-        Gate::define('devices.manage', fn (User $user): bool => $user->isAdmin());
+        Gate::define('devices.manage', fn (User $user): bool => $user->isFullAdmin());
 
         Gate::define('devices.alerts.acknowledge', fn (User $user): bool => $user->canOperateDevices());
     }
 
     /**
      * Access-control permissions.
-     *
-     * Viewing who holds which door is part of the monitoring role every
-     * account already has. Granting, revoking, suspending and enrolling are
-     * administrator-only: they change what a physical door will open.
      */
     private function defineAccessPermissions(): void
     {
         Gate::define('access.view', fn (User $user): bool => true);
 
-        Gate::define('access.manage', fn (User $user): bool => $user->isAdmin());
+        Gate::define('access.manage', fn (User $user): bool => $user->isFullAdmin());
 
-        Gate::define('access.enroll', fn (User $user): bool => $user->isAdmin());
+        Gate::define('access.enroll', fn (User $user): bool => $user->isFullAdmin());
 
-        Gate::define('access.audit', fn (User $user): bool => $user->isAdmin());
+        Gate::define('access.audit', fn (User $user): bool => $user->isAuditOfficer() || $user->hasPermission('access.audit'));
+
+        Gate::define('users.manage', fn (User $user): bool => $user->isFullAdmin());
+    }
+
+    /**
+     * Personnel management permissions (HR Officer and authorized roles).
+     */
+    private function definePersonnelPermissions(): void
+    {
+        Gate::define('personnel.view', fn (User $user): bool => true);
+
+        Gate::define('personnel.create', fn (User $user): bool => $user->isHrOfficer() || $user->hasPermission('personnel.create'));
+
+        Gate::define('personnel.edit', fn (User $user): bool => $user->isHrOfficer() || $user->hasPermission('personnel.edit'));
+
+        Gate::define('personnel.deactivate', fn (User $user): bool => $user->isHrOfficer() || $user->hasPermission('personnel.deactivate'));
+    }
+
+    /**
+     * Role-based dashboard permissions.
+     */
+    private function defineDashboardPermissions(): void
+    {
+        Gate::define('dashboards.all', fn (User $user): bool => $user->isFullAdmin());
+
+        Gate::define('dashboards.executive', fn (User $user): bool => $user->isExecutive());
+
+        Gate::define('dashboards.hr', fn (User $user): bool => $user->isHrOfficer());
+
+        Gate::define('dashboards.audit', fn (User $user): bool => $user->isAuditOfficer());
+
+        Gate::define('reports.executive', fn (User $user): bool => $user->isExecutive() || $user->isAuditOfficer());
+
+        Gate::define('reports.attendance', fn (User $user): bool => $user->isExecutive() || $user->isHrOfficer() || $user->isAuditOfficer());
     }
 
     private function defineRateLimits(): void
