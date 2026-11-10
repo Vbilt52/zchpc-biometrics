@@ -50,24 +50,39 @@ class DashboardController extends Controller
         }
         unset($bar);
         $eventsTodayCount = $chartDays[6]['count'];
-        $recentEvents = AccessEvent::with(['terminal', 'personnel'])->latest('occurred_at')->limit(5)->get()->map(function ($event) use ($zone) {
-            $minor = (int) $event->minor;
-            $badge = in_array($minor, [1, 38, 75], true) ? 'Fingerprint' : (in_array($minor, [13, 14, 15, 21, 22], true) ? 'PIN' : 'Access Granted');
-            $badgeClass = in_array($minor, [1, 38, 75], true) ? 'badge-success-pill' : (in_array($minor, [13, 14, 15, 21, 22], true) ? 'badge-warning-pill' : 'badge-neutral-pill');
+        $recentEvents = AccessEvent::with(['terminal', 'personnel'])
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get()
+            ->map(function ($event) use ($zone) {
+                $minor = (int) $event->minor;
+                $badge = in_array($minor, [1, 38, 75], true) ? 'Fingerprint' : (in_array($minor, [13, 14, 15, 21, 22], true) ? 'PIN' : 'Access Granted');
+                $badgeClass = in_array($minor, [1, 38, 75], true) ? 'badge-success-pill' : (in_array($minor, [13, 14, 15, 21, 22], true) ? 'badge-warning-pill' : 'badge-neutral-pill');
 
-            return [
-                'id' => $event->id,
-                'time' => $event->occurred_at?->copy()->timezone($zone)->toIso8601String(),
-                'time_formatted' => $event->occurred_at ? $event->occurred_at->copy()->timezone($zone)->format('M d, H:i') : 'Just now',
-                'name' => $event->person_name ?: $event->personnel?->name ?: 'Unknown',
-                'employeeNoString' => $event->employee_no,
-                'major' => $event->major,
-                'minor' => $event->minor,
-                'terminal_name' => $event->terminal?->name ?? 'Main Entrance',
-                'badge' => $badge,
-                'badge_class' => $badgeClass,
-            ];
-        })->all();
+                $occurred = $event->occurred_at ? $event->occurred_at->copy()->timezone($zone) : null;
+                $timeFormatted = $occurred
+                    ? ($occurred->isToday()
+                        ? 'Today, '.$occurred->format('H:i:s')
+                        : ($occurred->isYesterday()
+                            ? 'Yesterday, '.$occurred->format('H:i:s')
+                            : $occurred->format('M d, H:i:s')))
+                    : 'Just now';
+
+                return [
+                    'id' => $event->id,
+                    'time' => $occurred?->toIso8601String(),
+                    'time_formatted' => $timeFormatted,
+                    'time_relative' => $occurred?->diffForHumans(),
+                    'name' => $event->person_name ?: $event->personnel?->name ?: 'Unknown',
+                    'employeeNoString' => $event->employee_no,
+                    'major' => $event->major,
+                    'minor' => $event->minor,
+                    'terminal_name' => $event->terminal?->name ?? 'Main Entrance',
+                    'badge' => $badge,
+                    'badge_class' => $badgeClass,
+                ];
+            })->all();
         $formattedDateTime = now($zone)->format('D, d M Y | H:i');
         $terminalProgress = $totalTerminals > 0 ? max(20, min(100, ($onlineTerminals / $totalTerminals) * 100)) : 50;
 

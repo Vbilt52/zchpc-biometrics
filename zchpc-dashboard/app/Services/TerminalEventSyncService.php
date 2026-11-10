@@ -47,12 +47,18 @@ class TerminalEventSyncService
             $window = 3600;
 
             try {
-                // Bound each run; subsequent runs resume from the last complete window.
-                for ($attempt = 0; $attempt < 12 && $from->lt($target); $attempt++) {
+                // Advance windows until caught up to the target, backing off if truncated.
+                $truncationRetries = 0;
+                $maxSteps = 240; // Allow catching up to 10 days of hourly windows in a single run
+                $steps = 0;
+
+                while ($from->lt($target) && $steps < $maxSteps) {
+                    $steps++;
                     $to = $from->copy()->addSeconds($window)->min($target);
                     $result = $this->importer->import($terminal, $from, $to, $names);
                     if ($result['truncated']) {
-                        if ($window <= 1) {
+                        $truncationRetries++;
+                        if ($window <= 1 || $truncationRetries >= 12) {
                             throw new \RuntimeException('Event volume exceeds the per-second import limit.');
                         }
                         $window = max(1, intdiv($window, 2));
@@ -64,6 +70,8 @@ class TerminalEventSyncService
                     $through = $state->through_at ? $to->copy()->max($state->through_at) : $to;
                     $state->update(['through_at' => $through, 'last_success_at' => now(), 'last_error' => null]);
                     $from = Carbon::instance($to);
+                    $window = 3600;
+                    $truncationRetries = 0;
                 }
             } catch (\Throwable $error) {
                 $message = self::errorMessage($error);

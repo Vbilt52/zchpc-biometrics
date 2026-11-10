@@ -12,13 +12,7 @@
                 <i class="fa-solid fa-table-cells-large"></i>
             </div>
             <div>
-                <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
-                    <h1 class="page-title">System Overview</h1>
-                    <div class="live-pulse-badge">
-                        <span class="pulse-dot"></span>
-                        <span>LIVE</span>
-                    </div>
-                </div>
+                <h1 class="page-title">System Overview</h1>
                 <p class="page-subtitle">Real-time access control, devices and system status</p>
             </div>
         </div>
@@ -116,7 +110,6 @@
                     <i class="fa-solid fa-chart-line card-title-icon"></i>
                     <h2>Collected Access Events (Last 7 Days)</h2>
                 </div>
-                <span class="chart-live-indicator"><span class="pulse-dot"></span> Auto-updating</span>
             </div>
             <div class="chart-container">
                 <div class="chart-y-axis" id="chart-y-axis">
@@ -243,7 +236,10 @@
                         @foreach($recentEvents as $event)
                             <div class="events-table-row">
                                 <div class="col-time">
-                                    {{ $event['time_formatted'] ?? ($event['time'] ? \Carbon\Carbon::parse($event['time'])->format('M d, H:i') : 'Just now') }}
+                                    <span style="font-weight:700;color:var(--zchpc-secondary);display:block;">{{ $event['time_formatted'] ?? 'Just now' }}</span>
+                                    @if(!empty($event['time_relative']))
+                                        <small style="color:var(--zchpc-text-muted);font-size:.74rem;">{{ $event['time_relative'] }}</small>
+                                    @endif
                                 </div>
                                 <div class="col-personnel">
                                     <span class="person-name">{{ $event['name'] ?? 'Unknown' }}</span>
@@ -422,7 +418,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     eventsBody.style.display = 'block';
                     eventsBody.innerHTML = data.recentEvents.map(event => `
                         <div class="events-table-row">
-                            <div class="col-time">${escapeHtml(event.time_formatted || 'Just now')}</div>
+                            <div class="col-time">
+                                <span style="font-weight:700;color:var(--zchpc-secondary);display:block;">${escapeHtml(event.time_formatted || 'Just now')}</span>
+                                ${event.time_relative ? `<small style="color:var(--zchpc-text-muted);font-size:.74rem;">${escapeHtml(event.time_relative)}</small>` : ''}
+                            </div>
                             <div class="col-personnel">
                                 <span class="person-name">${escapeHtml(event.name || 'Unknown')}</span>
                                 ${event.employeeNoString ? `<span class="person-id">(${escapeHtml(event.employeeNoString)})</span>` : ''}
