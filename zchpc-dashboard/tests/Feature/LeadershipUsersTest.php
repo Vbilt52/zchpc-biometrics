@@ -46,3 +46,4 @@ class LeadershipUsersTest extends TestCase
         ]));
     }
 }
+

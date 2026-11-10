@@ -6,12 +6,25 @@ use App\Models\AccessEvent;
 use App\Models\Door;
 use App\Models\Personnel;
 use App\Models\Terminal;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Shaykhnazar\HikvisionIsapi\Client\DeviceManager;
 
 class DashboardController extends Controller
 {
     public function index(DeviceManager $deviceManager)
+    {
+        $data = $this->gatherDashboardData();
+
+        return view('dashboard', $data);
+    }
+
+    public function liveData(): JsonResponse
+    {
+        return response()->json($this->gatherDashboardData());
+    }
+
+    private function gatherDashboardData(): array
     {
         $terminals = Terminal::all();
         $totalTerminals = $terminals->count();
@@ -37,16 +50,28 @@ class DashboardController extends Controller
         }
         unset($bar);
         $eventsTodayCount = $chartDays[6]['count'];
-        $recentEvents = AccessEvent::with(['terminal', 'personnel'])->latest('occurred_at')->limit(5)->get()->map(fn ($event) => [
-            'time' => $event->occurred_at?->copy()->timezone($zone)->toIso8601String(),
-            'name' => $event->person_name ?: $event->personnel?->name,
-            'employeeNoString' => $event->employee_no,
-            'major' => $event->major, 'minor' => $event->minor,
-            'terminal_name' => $event->terminal?->name ?? 'Removed terminal',
-        ])->all();
-        $formattedDateTime = now($zone)->format('D, d M Y | H:i');
+        $recentEvents = AccessEvent::with(['terminal', 'personnel'])->latest('occurred_at')->limit(5)->get()->map(function ($event) use ($zone) {
+            $minor = (int) $event->minor;
+            $badge = in_array($minor, [1, 38, 75], true) ? 'Fingerprint' : (in_array($minor, [13, 14, 15, 21, 22], true) ? 'PIN' : 'Access Granted');
+            $badgeClass = in_array($minor, [1, 38, 75], true) ? 'badge-success-pill' : (in_array($minor, [13, 14, 15, 21, 22], true) ? 'badge-warning-pill' : 'badge-neutral-pill');
 
-        return view('dashboard', compact(
+            return [
+                'id' => $event->id,
+                'time' => $event->occurred_at?->copy()->timezone($zone)->toIso8601String(),
+                'time_formatted' => $event->occurred_at ? $event->occurred_at->copy()->timezone($zone)->format('M d, H:i') : 'Just now',
+                'name' => $event->person_name ?: $event->personnel?->name ?: 'Unknown',
+                'employeeNoString' => $event->employee_no,
+                'major' => $event->major,
+                'minor' => $event->minor,
+                'terminal_name' => $event->terminal?->name ?? 'Main Entrance',
+                'badge' => $badge,
+                'badge_class' => $badgeClass,
+            ];
+        })->all();
+        $formattedDateTime = now($zone)->format('D, d M Y | H:i');
+        $terminalProgress = $totalTerminals > 0 ? max(20, min(100, ($onlineTerminals / $totalTerminals) * 100)) : 50;
+
+        return compact(
             'totalTerminals',
             'onlineTerminals',
             'offlineTerminals',
@@ -54,8 +79,10 @@ class DashboardController extends Controller
             'totalPersons',
             'eventsTodayCount',
             'recentEvents',
-            'chartDays', 'chartMax',
-            'formattedDateTime'
-        ));
+            'chartDays',
+            'chartMax',
+            'formattedDateTime',
+            'terminalProgress'
+        );
     }
 }

@@ -57,3 +57,4 @@ class CreateLeadershipUsersCommand extends Command
         return self::SUCCESS;
     }
 }
+

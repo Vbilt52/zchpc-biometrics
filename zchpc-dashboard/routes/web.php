@@ -16,6 +16,7 @@ use App\Http\Controllers\DeviceAlertController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\DoorController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\PersonnelController;
 use App\Http\Controllers\SuperFingerprintController;
 use App\Http\Controllers\TerminalController;
@@ -35,6 +36,10 @@ Route::middleware(['auth', 'auth.session'])->group(function (): void {
 
     // Dashboard
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/live-data', [DashboardController::class, 'liveData'])->name('dashboard.live-data');
+
+    // Global Search
+    Route::get('/search/live', [GlobalSearchController::class, 'search'])->name('search.live');
 
     // Physical Terminals
     Route::resource('terminals', TerminalController::class)->except(['show'])->middleware('can:devices.manage');

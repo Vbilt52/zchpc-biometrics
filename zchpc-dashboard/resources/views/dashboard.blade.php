@@ -12,13 +12,19 @@
                 <i class="fa-solid fa-table-cells-large"></i>
             </div>
             <div>
-                <h1 class="page-title">System Overview</h1>
+                <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+                    <h1 class="page-title">System Overview</h1>
+                    <div class="live-pulse-badge">
+                        <span class="pulse-dot"></span>
+                        <span>LIVE</span>
+                    </div>
+                </div>
                 <p class="page-subtitle">Real-time access control, devices and system status</p>
             </div>
         </div>
         <div class="date-time-pill">
             <i class="fa-regular fa-calendar"></i>
-            <span>{{ $formattedDateTime ?? now()->format('D, d M Y | H:i') }}</span>
+            <span id="dashboard-date-time">{{ $formattedDateTime ?? now()->format('D, d M Y | H:i') }}</span>
         </div>
     </div>
 
@@ -33,11 +39,11 @@
                 <div class="kpi-meta">
                     <span class="kpi-label">ACTIVE TERMINALS</span>
                     <div class="kpi-stat-value">
-                        <span class="kpi-bold-num">{{ $onlineTerminals }}</span>
-                        <span class="kpi-total-num">/ {{ $totalTerminals }} Total</span>
+                        <span class="kpi-bold-num" id="kpi-online-terminals">{{ $onlineTerminals }}</span>
+                        <span class="kpi-total-num" id="kpi-total-terminals">/ {{ $totalTerminals }} Total</span>
                     </div>
                     <div class="terminal-progress-trough">
-                        <div class="terminal-progress-bar" style="width: {{ $totalTerminals > 0 ? max(20, min(100, ($onlineTerminals / $totalTerminals) * 100)) : 50 }}%;"></div>
+                        <div class="terminal-progress-bar" id="kpi-terminal-progress-bar" style="width: {{ $terminalProgress ?? ($totalTerminals > 0 ? max(20, min(100, ($onlineTerminals / $totalTerminals) * 100)) : 50) }}%;"></div>
                     </div>
                 </div>
             </div>
@@ -54,7 +60,7 @@
                 </div>
                 <div class="kpi-meta">
                     <span class="kpi-label">REGISTERED PERSONNEL</span>
-                    <div class="kpi-stat-value text-dark">
+                    <div class="kpi-stat-value text-dark" id="kpi-total-persons">
                         {{ number_format($totalPersons ?? 0) }}
                     </div>
                 </div>
@@ -72,7 +78,7 @@
                 </div>
                 <div class="kpi-meta">
                     <span class="kpi-label">ACCESS EVENTS TODAY</span>
-                    <div class="kpi-stat-value text-dark">
+                    <div class="kpi-stat-value text-dark" id="kpi-events-today">
                         {{ number_format($eventsTodayCount ?? 0) }}
                     </div>
                 </div>
@@ -90,7 +96,7 @@
                 </div>
                 <div class="kpi-meta">
                     <span class="kpi-label">CONTROLLED DOORS</span>
-                    <div class="kpi-stat-value text-dark">
+                    <div class="kpi-stat-value text-dark" id="kpi-controlled-doors">
                         {{ number_format($controlledDoors ?? 0) }}
                     </div>
                 </div>
@@ -110,9 +116,10 @@
                     <i class="fa-solid fa-chart-line card-title-icon"></i>
                     <h2>Collected Access Events (Last 7 Days)</h2>
                 </div>
+                <span class="chart-live-indicator"><span class="pulse-dot"></span> Auto-updating</span>
             </div>
             <div class="chart-container">
-                <div class="chart-y-axis">
+                <div class="chart-y-axis" id="chart-y-axis">
                     <span>{{ (int) ($chartMax * 100 / 100) }}</span>
                     <span>{{ (int) ($chartMax * 80 / 100) }}</span>
                     <span>{{ (int) ($chartMax * 60 / 100) }}</span>
@@ -129,7 +136,7 @@
                         <div class="chart-grid-line" style="bottom: 20%;"></div>
                         <div class="chart-grid-line" style="bottom: 0%;"></div>
 
-                        <div class="chart-bars-wrapper">
+                        <div class="chart-bars-wrapper" id="chart-bars-wrapper">
                             @foreach($chartDays as $bar)
                                 <div class="chart-bar-slot">
                                     <div class="chart-bar-fill" style="height: {{ $bar['height'] }}%;" title="{{ $bar['day'] }}: {{ $bar['count'] }} events"></div>
@@ -137,7 +144,7 @@
                             @endforeach
                         </div>
                     </div>
-                    <div class="chart-x-labels-row">
+                    <div class="chart-x-labels-row" id="chart-x-labels">
                         @foreach($chartDays as $bar)
                             <div class="chart-x-label-item">{{ $bar['day'] }}</div>
                         @endforeach
@@ -160,21 +167,21 @@
                         <i class="fa-solid fa-circle-check status-icon-online"></i>
                         <span class="status-label">Online</span>
                     </div>
-                    <span class="status-count">{{ $onlineTerminals }}</span>
+                    <span class="status-count" id="status-online-count">{{ $onlineTerminals }}</span>
                 </div>
                 <div class="status-item">
                     <div class="status-item-left">
                         <i class="fa-regular fa-clock status-icon-offline"></i>
                         <span class="status-label">Offline</span>
                     </div>
-                    <span class="status-count">{{ $offlineTerminals }}</span>
+                    <span class="status-count" id="status-offline-count">{{ $offlineTerminals }}</span>
                 </div>
                 <div class="status-item">
                     <div class="status-item-left">
                         <i class="fa-solid fa-server status-icon-total"></i>
                         <span class="status-label">Total Devices</span>
                     </div>
-                    <span class="status-count">{{ $totalTerminals }}</span>
+                    <span class="status-count" id="status-total-count">{{ $totalTerminals }}</span>
                 </div>
             </div>
         </div>
@@ -222,7 +229,7 @@
                 </a>
             </div>
             
-            <div class="recent-events-table-wrapper">
+            <div class="recent-events-table-wrapper" id="recent-events-container">
                 <div class="events-table-header">
                     <div class="col-th-time">TIME</div>
                     <div class="col-th-personnel">PERSONNEL</div>
@@ -231,27 +238,16 @@
                     <div class="col-th-details">DETAILS</div>
                 </div>
 
-                @if(empty($recentEvents) || count($recentEvents) === 0)
-                    <div class="events-empty-state">
-                        <div class="empty-icon-circle">
-                            <i class="fa-solid fa-fingerprint"></i>
-                        </div>
-                        <h3 class="empty-title">No recent events found</h3>
-                        <p class="empty-desc">Access events will appear here once activity is recorded.</p>
-                    </div>
-                @else
-                    <div class="events-table-body">
+                <div class="events-table-body" id="recent-events-body" style="{{ (empty($recentEvents) || count($recentEvents) === 0) ? 'display:none;' : '' }}">
+                    @if(!empty($recentEvents))
                         @foreach($recentEvents as $event)
                             <div class="events-table-row">
                                 <div class="col-time">
-                                    @php
-                                        $time = $event['time'] ?? $event['Time'] ?? null;
-                                        echo $time ? \Carbon\Carbon::parse($time)->format('M d, H:i') : 'Just now';
-                                    @endphp
+                                    {{ $event['time_formatted'] ?? ($event['time'] ? \Carbon\Carbon::parse($event['time'])->format('M d, H:i') : 'Just now') }}
                                 </div>
                                 <div class="col-personnel">
-                                    <span class="person-name">{{ $event['name'] ?? $event['Name'] ?? 'Unknown' }}</span>
-                                    @if(isset($event['employeeNoString']) && $event['employeeNoString'])
+                                    <span class="person-name">{{ $event['name'] ?? 'Unknown' }}</span>
+                                    @if(!empty($event['employeeNoString']))
                                         <span class="person-id">({{ $event['employeeNoString'] }})</span>
                                     @endif
                                 </div>
@@ -264,18 +260,20 @@
                                     {{ $event['terminal_name'] ?? 'Main Entrance' }}
                                 </div>
                                 <div class="col-details">
-                                    @if(isset($event['minor']) && in_array((int)$event['minor'], [1, 38, 75]))
-                                        <span class="badge-success-pill">Fingerprint</span>
-                                    @elseif(isset($event['minor']) && in_array((int)$event['minor'], [13, 14, 15, 21, 22]))
-                                        <span class="badge-warning-pill">PIN</span>
-                                    @else
-                                        <span class="badge-neutral-pill">Access Granted</span>
-                                    @endif
+                                    <span class="{{ $event['badge_class'] ?? 'badge-neutral-pill' }}">{{ $event['badge'] ?? 'Access Granted' }}</span>
                                 </div>
                             </div>
                         @endforeach
+                    @endif
+                </div>
+
+                <div class="events-empty-state" id="recent-events-empty" style="{{ (!empty($recentEvents) && count($recentEvents) > 0) ? 'display:none;' : '' }}">
+                    <div class="empty-icon-circle">
+                        <i class="fa-solid fa-fingerprint"></i>
                     </div>
-                @endif
+                    <h3 class="empty-title">No recent events found</h3>
+                    <p class="empty-desc">Access events will appear here once activity is recorded.</p>
+                </div>
             </div>
         </div>
 
@@ -333,3 +331,129 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function refreshDashboardLive() {
+        fetch('{{ route("dashboard.live-data") }}', {
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(response => {
+            if (!response.ok) return null;
+            return response.json();
+        })
+        .then(data => {
+            if (!data) return;
+
+            // Update KPIs
+            const onlineEl = document.getElementById('kpi-online-terminals');
+            if (onlineEl) onlineEl.textContent = data.onlineTerminals;
+
+            const totalTerminalsEl = document.getElementById('kpi-total-terminals');
+            if (totalTerminalsEl) totalTerminalsEl.textContent = '/ ' + data.totalTerminals + ' Total';
+
+            const progressBar = document.getElementById('kpi-terminal-progress-bar');
+            if (progressBar && data.terminalProgress !== undefined) {
+                progressBar.style.width = data.terminalProgress + '%';
+            }
+
+            const totalPersonsEl = document.getElementById('kpi-total-persons');
+            if (totalPersonsEl) totalPersonsEl.textContent = Number(data.totalPersons).toLocaleString();
+
+            const eventsTodayEl = document.getElementById('kpi-events-today');
+            if (eventsTodayEl) eventsTodayEl.textContent = Number(data.eventsTodayCount).toLocaleString();
+
+            const controlledDoorsEl = document.getElementById('kpi-controlled-doors');
+            if (controlledDoorsEl) controlledDoorsEl.textContent = Number(data.controlledDoors).toLocaleString();
+
+            const dateTimeEl = document.getElementById('dashboard-date-time');
+            if (dateTimeEl && data.formattedDateTime) dateTimeEl.textContent = data.formattedDateTime;
+
+            // Update Device Status block
+            const statusOnlineEl = document.getElementById('status-online-count');
+            if (statusOnlineEl) statusOnlineEl.textContent = data.onlineTerminals;
+
+            const statusOfflineEl = document.getElementById('status-offline-count');
+            if (statusOfflineEl) statusOfflineEl.textContent = data.offlineTerminals;
+
+            const statusTotalEl = document.getElementById('status-total-count');
+            if (statusTotalEl) statusTotalEl.textContent = data.totalTerminals;
+
+            // Update 7-Day Chart
+            if (data.chartDays && Array.isArray(data.chartDays)) {
+                const barsContainer = document.getElementById('chart-bars-wrapper');
+                const xLabelsContainer = document.getElementById('chart-x-labels');
+                const yAxis = document.getElementById('chart-y-axis');
+
+                if (yAxis && data.chartMax) {
+                    yAxis.innerHTML = `
+                        <span>${Math.round(data.chartMax)}</span>
+                        <span>${Math.round(data.chartMax * 0.8)}</span>
+                        <span>${Math.round(data.chartMax * 0.6)}</span>
+                        <span>${Math.round(data.chartMax * 0.4)}</span>
+                        <span>${Math.round(data.chartMax * 0.2)}</span>
+                        <span>0</span>
+                    `;
+                }
+
+                if (barsContainer) {
+                    barsContainer.innerHTML = data.chartDays.map(bar => `
+                        <div class="chart-bar-slot">
+                            <div class="chart-bar-fill" style="height: ${bar.height}%;" title="${escapeHtml(bar.day)}: ${bar.count} events"></div>
+                        </div>
+                    `).join('');
+                }
+
+                if (xLabelsContainer) {
+                    xLabelsContainer.innerHTML = data.chartDays.map(bar => `
+                        <div class="chart-x-label-item">${escapeHtml(bar.day)}</div>
+                    `).join('');
+                }
+            }
+
+            // Update Recent Events
+            const eventsBody = document.getElementById('recent-events-body');
+            const eventsEmpty = document.getElementById('recent-events-empty');
+
+            if (data.recentEvents && Array.isArray(data.recentEvents) && data.recentEvents.length > 0) {
+                if (eventsEmpty) eventsEmpty.style.display = 'none';
+                if (eventsBody) {
+                    eventsBody.style.display = 'block';
+                    eventsBody.innerHTML = data.recentEvents.map(event => `
+                        <div class="events-table-row">
+                            <div class="col-time">${escapeHtml(event.time_formatted || 'Just now')}</div>
+                            <div class="col-personnel">
+                                <span class="person-name">${escapeHtml(event.name || 'Unknown')}</span>
+                                ${event.employeeNoString ? `<span class="person-id">(${escapeHtml(event.employeeNoString)})</span>` : ''}
+                            </div>
+                            <div class="col-event">
+                                <span class="event-pill">Type ${escapeHtml(event.major || '1')}-${escapeHtml(event.minor || '1')}</span>
+                            </div>
+                            <div class="col-device">${escapeHtml(event.terminal_name || 'Main Entrance')}</div>
+                            <div class="col-details">
+                                <span class="${escapeHtml(event.badge_class || 'badge-neutral-pill')}">${escapeHtml(event.badge || 'Access Granted')}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } else {
+                if (eventsBody) eventsBody.style.display = 'none';
+                if (eventsEmpty) eventsEmpty.style.display = 'flex';
+            }
+        })
+        .catch(() => {});
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>"']/g, function(m) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+        });
+    }
+
+    // Refresh every 6 seconds
+    setInterval(refreshDashboardLive, 6000);
+});
+</script>
+@endpush

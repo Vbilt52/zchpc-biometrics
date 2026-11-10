@@ -103,10 +103,14 @@
                 </div>
 
                 <div class="top-header-center">
-                    <div class="header-search-bar">
-                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                        <input type="text" placeholder="Search personnel, device, or event..." aria-label="Search" class="search-input">
-                    </div>
+                    <form method="GET" action="{{ route('events.index') }}" class="header-search-form" id="header-global-search-form" autocomplete="off">
+                        <div class="header-search-bar">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" name="search" id="header-search-input" placeholder="Search personnel, device, or event..." aria-label="Search" class="search-input" value="{{ request('search') }}">
+                            <span class="search-spinner" id="header-search-spinner" style="display:none;"><i class="fa-solid fa-spinner fa-spin"></i></span>
+                        </div>
+                        <div class="search-dropdown-menu" id="header-search-dropdown"></div>
+                    </form>
                 </div>
             </header>
 
@@ -122,6 +126,138 @@
             </div>
         </main>
     </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('header-search-input');
+        const dropdown = document.getElementById('header-search-dropdown');
+        const spinner = document.getElementById('header-search-spinner');
+        if (!searchInput || !dropdown) return;
+
+        let debounceTimer = null;
+
+        searchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            clearTimeout(debounceTimer);
+
+            if (query.length < 2) {
+                dropdown.style.display = 'none';
+                dropdown.innerHTML = '';
+                if (spinner) spinner.style.display = 'none';
+                return;
+            }
+
+            if (spinner) spinner.style.display = 'inline-block';
+
+            debounceTimer = setTimeout(() => {
+                fetch('{{ route("search.live") }}?q=' + encodeURIComponent(query), {
+                    headers: { 'Accept': 'application/json' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (spinner) spinner.style.display = 'none';
+                    renderSearchResults(data, query);
+                })
+                .catch(() => {
+                    if (spinner) spinner.style.display = 'none';
+                });
+            }, 250);
+        });
+
+        function renderSearchResults(data, query) {
+            if (!data || data.total === 0) {
+                dropdown.innerHTML = '<div class="search-empty">No results found for "<strong>' + escapeHtml(query) + '</strong>"</div>';
+                dropdown.style.display = 'block';
+                return;
+            }
+
+            let html = '';
+
+            if (data.personnel && data.personnel.length > 0) {
+                html += '<div class="search-category-title"><i class="fa-solid fa-users"></i> Personnel (' + data.personnel.length + ')</div>';
+                data.personnel.forEach(item => {
+                    html += `
+                        <a href="${item.url}" class="search-item">
+                            <div class="search-item-icon personnel-icon"><i class="${item.icon}"></i></div>
+                            <div class="search-item-info">
+                                <div class="search-item-title">${escapeHtml(item.title)}</div>
+                                <div class="search-item-sub">${escapeHtml(item.subtitle)}</div>
+                            </div>
+                            <span class="search-badge">${escapeHtml(item.badge)}</span>
+                        </a>
+                    `;
+                });
+            }
+
+            if (data.devices && data.devices.length > 0) {
+                html += '<div class="search-category-title"><i class="fa-solid fa-server"></i> Devices (' + data.devices.length + ')</div>';
+                data.devices.forEach(item => {
+                    html += `
+                        <a href="${item.url}" class="search-item">
+                            <div class="search-item-icon device-icon"><i class="${item.icon}"></i></div>
+                            <div class="search-item-info">
+                                <div class="search-item-title">${escapeHtml(item.title)}</div>
+                                <div class="search-item-sub">${escapeHtml(item.subtitle)}</div>
+                            </div>
+                            <span class="search-badge ${item.badge.toLowerCase() === 'online' ? 'badge-online' : ''}">${escapeHtml(item.badge)}</span>
+                        </a>
+                    `;
+                });
+            }
+
+            if (data.events && data.events.length > 0) {
+                html += '<div class="search-category-title"><i class="fa-solid fa-bolt"></i> Access Events (' + data.events.length + ')</div>';
+                data.events.forEach(item => {
+                    html += `
+                        <a href="${item.url}" class="search-item">
+                            <div class="search-item-icon event-icon"><i class="${item.icon}"></i></div>
+                            <div class="search-item-info">
+                                <div class="search-item-title">${escapeHtml(item.title)}</div>
+                                <div class="search-item-sub">${escapeHtml(item.subtitle)}</div>
+                            </div>
+                            <span class="search-badge ${item.badge === 'Granted' ? 'badge-online' : 'badge-denied'}">${escapeHtml(item.badge)}</span>
+                        </a>
+                    `;
+                });
+            }
+
+            html += `
+                <div class="search-footer">
+                    <a href="{{ route('events.index') }}?search=${encodeURIComponent(query)}">
+                        View all matching events in Audit Log <i class="fa-solid fa-arrow-right"></i>
+                    </a>
+                </div>
+            `;
+
+            dropdown.innerHTML = html;
+            dropdown.style.display = 'block';
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+            });
+        }
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#header-global-search-form')) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        searchInput.addEventListener('focus', function() {
+            if (this.value.trim().length >= 2 && dropdown.innerHTML.trim() !== '') {
+                dropdown.style.display = 'block';
+            }
+        });
+    });
+    </script>
     @stack('scripts')
 </body>
 </html>
