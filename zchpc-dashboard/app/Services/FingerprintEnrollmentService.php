@@ -7,6 +7,8 @@ use App\Models\FingerprintEnrollment;
 use App\Models\Personnel;
 use App\Models\Terminal;
 use App\Models\User;
+use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -193,6 +195,12 @@ class FingerprintEnrollmentService
                     sleep(1);
                     $slots = $this->fingerprintSlots($enrollment->terminal, $enrollment->employee_no);
                 }
+                if (! in_array((int) $enrollment->finger_id, $slots, true)) {
+                    $this->finish($enrollment, FingerprintEnrollment::STATUS_FAILED,
+                        'The captured fingerprint could not be verified on the device. Retry enrollment or continue without a fingerprint.', $response);
+
+                    return;
+                }
             } else {
                 // Fallback for devices without CaptureFingerPrint: SetUp without template and poll
                 $response = $client->post('/ISAPI/AccessControl/FingerPrint/SetUp', [
@@ -303,7 +311,7 @@ class FingerprintEnrollmentService
         $response = null;
 
         // Check if we already know this terminal needs FingerPrintUpload
-        $preferUpload = \Illuminate\Support\Facades\Cache::get("terminal.{$terminal->id}.fp_use_upload", false);
+        $preferUpload = Cache::get("terminal.{$terminal->id}.fp_use_upload", false);
 
         if ($preferUpload) {
             try {
@@ -344,7 +352,7 @@ class FingerprintEnrollmentService
                     || str_contains($sMsg, '404')
                     || str_contains($sMsg, 'invalidid')
                     || str_contains($sMsg, '400 bad request')) {
-                    \Illuminate\Support\Facades\Cache::put("terminal.{$terminal->id}.fp_use_upload", true, now()->addDay());
+                    Cache::put("terminal.{$terminal->id}.fp_use_upload", true, now()->addDay());
                     try {
                         $response = $client->post('/ISAPI/AccessControl/FingerPrintUpload', [
                             'FingerPrintCond' => [
@@ -524,18 +532,15 @@ class FingerprintEnrollmentService
      */
     private function captureLiveFingerprint(Terminal $terminal, int $fingerId, int $timeout): ?string
     {
-        if (app()->runningUnitTests()) {
-            return null;
-        }
-
         $xml = '<?xml version="1.0" encoding="UTF-8"?>'
             .'<CaptureFingerPrintCond version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema">'
             .'<fingerNo>'.$fingerId.'</fingerNo>'
             .'</CaptureFingerPrintCond>';
 
         try {
-            $http = new \GuzzleHttp\Client();
-            $response = $http->post("http://{$terminal->ip}:{$terminal->port}/ISAPI/AccessControl/CaptureFingerPrint", [
+            $http = app(Client::class);
+            $response = $http->post("{$terminal->protocol}://{$terminal->ip}:{$terminal->port}/ISAPI/AccessControl/CaptureFingerPrint", [
+                'verify' => (bool) $terminal->verify_ssl,
                 'auth' => [$terminal->username, $terminal->password, 'digest'],
                 'headers' => [
                     'Content-Type' => 'application/xml',
