@@ -8,6 +8,7 @@ use App\Models\Personnel;
 use App\Models\Terminal;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -66,30 +67,133 @@ class PersonnelDeviceAccessService
     /** Archive locally first; keep identity/history and durable controller removals. */
     public function remove(Personnel $person): array
     {
-        return Cache::lock('person-access:'.$person->id, 600)->block(3, function () use ($person): array {
-            $person->refresh();
-            $terminalIds = $person->terminals()->pluck('terminals.id')
-                ->merge($person->fingerprintEnrollments()->whereNotNull('terminal_id')->pluck('terminal_id'))
-                ->merge($person->doors()->pluck('terminal_id'))
-                ->merge($person->pendingSyncs()->pluck('terminal_id'))->unique();
-            $terminals = Terminal::whereIn('id', $terminalIds)->get();
-            foreach ($terminals as $terminal) {
-                if (! $terminal->supports('personnel_sync')) {
-                    throw new \RuntimeException('Remove this person from the unmanaged device before deleting their local record.');
-                }
-            }
-            DB::transaction(function () use ($person, $terminals): void {
-                $person->update(['valid_enabled' => false, 'status' => Personnel::STATUS_SUSPENDED]);
-                $person->delete();
-                foreach ($terminals as $terminal) {
-                    $person->terminals()->syncWithoutDetaching([$terminal->id => ['access_allowed' => false, 'sync_status' => 'pending']]);
-                    $this->queue($person, $terminal, 'Removal awaiting device confirmation.');
-                }
-            });
+        return Cache::lock('person-access:'.$person->id, 600)->block(3, fn (): array => $this->archiveForRemoval($person));
+    }
 
-            // Hardware is handled by the scheduler so an offline device cannot hold the request open.
-            return ['synced' => 0, 'pending' => $terminals->count()];
+    /**
+     * Lock the entire selection, then archive and audit it atomically without device calls.
+     *
+     * Everything is written as a small fixed number of statements regardless of
+     * how many people are selected: a 100-person removal must not fan out to a
+     * dozen queries per identity.
+     */
+    public function removeMany(array $ids, ?User $actor = null, ?string $ipAddress = null): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        if ($ids === [] || count($ids) > 100) {
+            throw ValidationException::withMessages(['ids' => 'Select between 1 and 100 users.']);
+        }
+        sort($ids);
+        $locks = [];
+
+        try {
+            foreach ($ids as $id) {
+                $lock = Cache::lock('person-access:'.$id, 600);
+                if (! $lock->get()) {
+                    throw ValidationException::withMessages(['ids' => 'A selected user is being synchronized or edited. Nothing was deleted. Please retry.']);
+                }
+                $locks[] = $lock;
+            }
+
+            return DB::transaction(function () use ($ids, $actor, $ipAddress): array {
+                // One read per relation for the whole selection instead of four per person.
+                $people = Personnel::with(['terminals', 'fingerprintEnrollments', 'doors', 'pendingSyncs'])
+                    ->whereIn('id', $ids)->orderBy('id')->get();
+                if ($people->count() !== count($ids)) {
+                    throw ValidationException::withMessages(['ids' => 'The selection has changed. Refresh the list and select users again.']);
+                }
+
+                $targets = [];
+                $terminalIds = [];
+                foreach ($people as $person) {
+                    $this->assertNotRemoved($person);
+                    $targets[$person->id] = $this->removalTargetIds($person);
+                    $terminalIds = array_merge($terminalIds, $targets[$person->id]);
+                }
+                // Verify every controller before writing, so an unmanaged reader
+                // rejects the selection instead of a partially applied removal.
+                $this->removalTerminals($terminalIds);
+
+                $pairs = [];
+                foreach ($targets as $personId => $personTerminals) {
+                    foreach ($personTerminals as $terminalId) {
+                        $pairs[] = ['personnel_id' => $personId, 'terminal_id' => $terminalId];
+                    }
+                }
+
+                $now = now();
+                Personnel::whereIn('id', $ids)->update([
+                    'valid_enabled' => false, 'status' => Personnel::STATUS_SUSPENDED, 'deleted_at' => $now, 'updated_at' => $now,
+                ]);
+
+                if ($pairs !== []) {
+                    DB::table('personnel_terminals')->upsert(array_map(fn (array $pair): array => $pair + [
+                        'access_allowed' => false, 'sync_status' => 'pending', 'synced_at' => null,
+                        'created_at' => $now, 'updated_at' => $now,
+                    ], $pairs), ['personnel_id', 'terminal_id'], ['access_allowed', 'sync_status', 'updated_at']);
+
+                    DB::table('pending_terminal_syncs')->upsert(array_map(fn (array $pair): array => $pair + [
+                        'operation' => 'delete', 'attempts' => 0, 'last_error' => 'Removal awaiting device confirmation.',
+                        'last_attempt_at' => $now, 'next_attempt_at' => $now->copy()->addMinute(),
+                        'created_at' => $now, 'updated_at' => $now,
+                    ], $pairs), ['terminal_id', 'personnel_id'],
+                        ['operation', 'attempts', 'last_error', 'last_attempt_at', 'next_attempt_at', 'updated_at']);
+                }
+
+                app(AccessAuditLogger::class)->logBulkPersonnelRemoval(
+                    $people, count($ids), array_map('count', $targets), $actor, $ipAddress);
+
+                return ['removed' => $people->count(), 'pending' => count($pairs)];
+            });
+        } finally {
+            foreach ($locks as $lock) {
+                $lock->release();
+            }
+        }
+    }
+
+    /** Caller holds the person's access lock. */
+    private function archiveForRemoval(Personnel $person): array
+    {
+        $person->refresh();
+        $this->assertNotRemoved($person);
+        $terminals = $this->removalTerminals($this->removalTargetIds($person));
+        DB::transaction(function () use ($person, $terminals): void {
+            $person->update(['valid_enabled' => false, 'status' => Personnel::STATUS_SUSPENDED]);
+            $person->delete();
+            foreach ($terminals as $terminal) {
+                $person->terminals()->syncWithoutDetaching([$terminal->id => ['access_allowed' => false, 'sync_status' => 'pending']]);
+                $this->queue($person, $terminal, 'Removal awaiting device confirmation.');
+            }
         });
+
+        // Hardware is handled by the scheduler so an offline device cannot hold the request open.
+        return ['synced' => 0, 'pending' => $terminals->count()];
+    }
+
+    /** Terminal IDs whose controller must be told about this person's removal. */
+    private function removalTargetIds(Personnel $person): array
+    {
+        $person->loadMissing(['terminals', 'fingerprintEnrollments', 'doors', 'pendingSyncs']);
+
+        return $person->terminals->pluck('id')
+            ->merge($person->fingerprintEnrollments->pluck('terminal_id'))
+            ->merge($person->doors->pluck('terminal_id'))
+            ->merge($person->pendingSyncs->pluck('terminal_id'))
+            ->filter()->unique()->values()->all();
+    }
+
+    /** @param  array<int, int>  $terminalIds */
+    private function removalTerminals(array $terminalIds): Collection
+    {
+        $terminals = Terminal::whereIn('id', array_values(array_unique($terminalIds)))->get();
+        foreach ($terminals as $terminal) {
+            if (! $terminal->supports('personnel_sync')) {
+                throw new \RuntimeException('Remove this person from the unmanaged device before deleting their local record.');
+            }
+        }
+
+        return $terminals;
     }
 
     public function queue(Personnel $personnel, Terminal $terminal, string $error): void

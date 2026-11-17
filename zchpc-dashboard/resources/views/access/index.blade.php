@@ -130,10 +130,14 @@
         </form>
     </div>
 
+    @can('access.manage')
+        @include('personnel.bulk-delete', ['bulkDeleteRoute' => 'access.users.bulk-destroy'])
+    @endcan
     <div class="table-wrapper">
         <table>
             <thead>
                 <tr>
+                    @can('access.manage') @include('personnel.select-page') @endcan
                     <th>Person</th>
                     <th>Department</th>
                     <th>Fingerprint</th>
@@ -147,6 +151,7 @@
             <tbody>
             @forelse($people as $person)
                 <tr>
+                    @can('access.manage') @include('personnel.selection-checkbox') @endcan
                     <td>
                         <div style="display:flex;align-items:center;gap:.6rem;">
                             @if($person->photo_path)
@@ -195,7 +200,7 @@
                     <td><a href="{{ route('access.users.show', $person) }}" class="btn btn-outline" style="padding:.35rem .6rem;">View</a></td>
                 </tr>
             @empty
-                <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--zchpc-text-muted);">No people match these filters.</td></tr>
+                <tr><td colspan="{{ auth()->user()->can('access.manage') ? 9 : 8 }}" style="text-align:center;padding:2rem;color:var(--zchpc-text-muted);">No people match these filters.</td></tr>
             @endforelse
             </tbody>
         </table>

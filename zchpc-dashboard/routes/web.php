@@ -10,6 +10,7 @@ use App\Http\Controllers\AccessWizardController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BulkPersonnelDeletionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceActivityController;
 use App\Http\Controllers\DeviceAlertController;
@@ -101,6 +102,7 @@ Route::middleware(['auth', 'auth.session'])->group(function (): void {
     Route::post('/personnel/{personnel}/sync', [PersonnelController::class, 'sync'])->middleware('can:access.manage')->name('personnel.sync');
 
     // Personnel — standard CRUD
+    Route::delete('/personnel/bulk-delete', BulkPersonnelDeletionController::class)->middleware('can:personnel.deactivate')->name('personnel.bulk-destroy');
     Route::resource('personnel', PersonnelController::class)
         ->middlewareFor(['create', 'store'], 'can:personnel.create')
         ->middlewareFor(['edit', 'update'], 'can:personnel.edit')
@@ -118,6 +120,7 @@ Route::middleware(['auth', 'auth.session'])->group(function (): void {
     // synchronization and audit. Existing /personnel routes stay untouched.
     Route::prefix('access')->name('access.')->group(function (): void {
         Route::get('/', [AccessUserController::class, 'index'])->name('index');
+        Route::delete('users/bulk-delete', BulkPersonnelDeletionController::class)->middleware('can:access.manage')->name('users.bulk-destroy');
 
         // Downloads & Exports — literal routes registered before user parameter routes
         Route::get('users/export/csv', [AccessUserController::class, 'exportCsv'])->name('users.export.csv');

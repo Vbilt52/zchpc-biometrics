@@ -20,7 +20,15 @@ Keep `php artisan schedule:work` running for automatic retries. The queue retrie
 
 Pending revocation explicitly warns that access may remain until the terminal confirms. Confirmation describes the last successful device readback; it does not continuously audit subsequent edits made on the terminal itself. No live changes to people's permissions were made as part of implementation verification.
 
-Deletion retains the local record if any associated device cannot confirm removal. Already-confirmed removals clear old queued updates so they cannot recreate deleted device profiles. Retry deletion after connectivity is restored; for durable access removal while a device is offline, uncheck its assignment and save to queue revocation.
+Removal archives the local identity immediately: the person is suspended, soft-deleted and hidden from the lists, while their history, audit entries and attendance records are retained. A deletion is queued for every controller that ever held the identity, its templates or a door grant, and already-confirmed removals clear older queued updates so they cannot recreate the profile. The request never waits on hardware, so an offline terminal cannot hold the browser open; the scheduler applies queued deletions as devices reconnect, with the same backoff as profile updates. Because the local record is archived before any device confirms, an offline terminal may keep enforcing the person until it reconnects, and each device's confirmation state shows what is still outstanding.
+
+## Removing several people
+
+Both the Personnel list and the Access list accept a selection when the signed-in account may delete people (Deactivate Personnel on Personnel, Access Management on Access). Tick row checkboxes, or the header checkbox to select everyone on the current page, then choose Delete selected and confirm. Selection is page-scoped: changing page, filter or search clears it, and the server never accepts a client-supplied "all" instruction.
+
+A bulk removal is all-or-nothing. The server accepts up to 100 ids, takes each person's access lock, verifies that every affected controller is API-managed, and applies the archive, the queued device deletions and one audit entry per person in a single transaction. A stale list, a selection over 100, a person being synchronized, or a standalone reader in the selection means nothing is deleted and the page states why. Each audit entry records the employee number, the selection size and the number of queued device removals.
+
+Bulk removal is written as a fixed number of statements rather than a set per person: a 100-person selection reads the affected relations once and upserts the assignments, queued deletions and audit entries in batches. Measured on the local SQLite suite, a 100-person removal costs 110 queries and about 13 ms of database time (117 ms wall), against 1,603 queries and 97 ms before batching.
 
 ## Failed attempts
 
@@ -30,7 +38,7 @@ Only attempts actually recorded by the terminal and collected by the application
 
 ## Verification and hardware status
 
-49 automated tests / 278 assertions passed using isolated in-memory data and mocked terminal responses. Coverage includes four-device selection, date/phone updates, revocation, stale queued grants, rejected writes, stale readback, partial deletion, imports, enrollment restrictions, anonymous failed attempts and filtered exports. Browser checks covered the personnel list, editor, device shortcuts and failed-attempts page.
+The full dashboard suite passes at 129 tests / 848 assertions using isolated in-memory data and mocked terminal responses, including seven bulk-removal cases (78 assertions) covering page-scoped selection, rejected and stale selections, lock contention, atomic rollback, permissions and list rendering. Coverage includes four-device selection, date/phone updates, revocation, stale queued grants, rejected writes, stale readback, partial deletion, imports, enrollment restrictions, anonymous failed attempts and filtered exports. Browser checks covered the personnel list, editor, device shortcuts and failed-attempts page.
 
 All four configured devices showed offline during the live UI check. Actual firmware acceptance and physical access enforcement still require verification when the terminal network is available. The application shows pending or unverified states until readback succeeds; it does not claim hardware confirmation from local saves.
 
