@@ -7,6 +7,7 @@ use App\Models\Door;
 use App\Models\Personnel;
 use App\Models\Terminal;
 use App\Models\TerminalEventSync;
+use App\Services\AttendanceRegisterService;
 use App\Services\EventImportService;
 use App\Services\TabularReportExporter;
 use Carbon\Carbon;
@@ -141,7 +142,7 @@ class EventController extends Controller
     public function exportPdf(Request $request): Response
     {
         $filters = $this->filters($request);
-        $events = $this->reportEvents($filters);
+        $events = $this->reportEvents($filters, 500);
 
         $html = view('events.report', [
             'events' => $events,
@@ -178,7 +179,7 @@ class EventController extends Controller
     {
         $filters = $this->filters($request);
         $rows = $this->reportEvents($filters)->map(fn (AccessEvent $event) => [
-            $event->occurred_at?->timezone(config('attendance.timezone'))->format('Y-m-d H:i:s') ?? 'Unknown',
+            app(AttendanceRegisterService::class)->eventTime($event)?->format('Y-m-d H:i:s') ?? 'Unknown',
             $event->terminal?->name ?? 'Removed terminal', $event->entranceLabel(),
             $event->displayName(), $event->employee_no ?? '', $event->methodLabel(),
             $event->outcomeLabel(), $event->directionLabel(),
@@ -231,10 +232,7 @@ class EventController extends Controller
             $query->failedAttempt();
         }
         if (($filters['outcome'] ?? 'all') === 'granted') {
-            $query->where(function (Builder $q): void {
-                $q->where('event_type', 'AccessGranted')->orWhere(fn (Builder $q) => $q->where('major', 5)->whereIn('minor', [1, 21, 25, 26, 27, 38, 65, 75]));
-            })->where(fn (Builder $q) => $q->whereNull('event_type')->orWhere('event_type', '!=', 'AccessDenied'))
-                ->where(fn (Builder $q) => $q->whereNull('major')->orWhere('major', '!=', 5)->orWhereNull('minor')->orWhereNotIn('minor', AccessEvent::DENIED_MINOR_CODES));
+            $query->grantedAccess();
         }
 
         if (! empty($filters['door_id'])) {
@@ -268,15 +266,15 @@ class EventController extends Controller
     }
 
     /** @param array{terminal_id: int|null, door_id: int|null, personnel_id: int|null, search: string|null, from: Carbon, to: Carbon} $filters */
-    private function reportEvents(array $filters): Collection
+    private function reportEvents(array $filters, int $limit = 5000): Collection
     {
         $events = $this->filteredEvents($filters)
             ->with(['terminal.doors', 'personnel'])
             ->orderByDesc('occurred_at')
             ->orderByDesc('id')
-            ->limit(5001)
+            ->limit($limit + 1)
             ->get();
-        abort_if($events->count() > 5000, 422, 'This report exceeds 5,000 records. Choose a shorter date range or an entrance/person filter.');
+        abort_if($events->count() > $limit, 422, "This report exceeds {$limit} records. Choose a shorter date range or an entrance/person filter.");
 
         return $events;
     }

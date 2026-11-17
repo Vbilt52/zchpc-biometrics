@@ -80,7 +80,7 @@
                                     {{ $clock->occurred_at?->timezone(config('attendance.timezone'))->format('H:i:s') }}
                                 </td>
                                 <td style="padding:0.65rem 0.85rem;">
-                                    <div style="font-weight:600;color:#0f172a;">{{ $clock->person_name ?: 'Employee #' . $clock->employee_no }}</div>
+                                    <div style="font-weight:600;color:#0f172a;">{{ $clock->displayName() }}</div>
                                     <div style="font-size:0.75rem;color:#64748b;">ID: {{ $clock->employee_no }}</div>
                                 </td>
                                 <td style="padding:0.65rem 0.85rem;">

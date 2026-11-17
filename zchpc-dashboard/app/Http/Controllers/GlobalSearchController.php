@@ -12,7 +12,8 @@ class GlobalSearchController extends Controller
 {
     public function search(Request $request): JsonResponse
     {
-        $q = trim((string) $request->query('q', ''));
+        $validated = $request->validate(['q' => ['nullable', 'string', 'max:80']]);
+        $q = trim($validated['q'] ?? '');
         if (mb_strlen($q) < 2) {
             return response()->json([
                 'personnel' => [],
@@ -34,7 +35,7 @@ class GlobalSearchController extends Controller
             ->map(fn ($p) => [
                 'id' => $p->id,
                 'title' => $p->name,
-                'subtitle' => 'ID: ' . $p->employee_no . ($p->department ? ' · ' . $p->department : ''),
+                'subtitle' => 'ID: '.$p->employee_no.($p->department ? ' · '.$p->department : ''),
                 'url' => route('access.users.show', $p->id),
                 'icon' => 'fa-solid fa-user',
                 'badge' => ucfirst($p->status ?? 'active'),
@@ -49,7 +50,7 @@ class GlobalSearchController extends Controller
             ->map(fn ($t) => [
                 'id' => $t->id,
                 'title' => $t->name,
-                'subtitle' => "{$t->ip}:{$t->port}" . ($t->location ? " · {$t->location}" : ''),
+                'subtitle' => "{$t->ip}:{$t->port}".($t->location ? " · {$t->location}" : ''),
                 'url' => route('devices.index', ['search' => $t->name]),
                 'icon' => 'fa-solid fa-server',
                 'badge' => ucfirst($t->status ?? 'unknown'),
@@ -57,19 +58,20 @@ class GlobalSearchController extends Controller
 
         $zone = config('attendance.timezone');
         $events = AccessEvent::query()
-            ->with('terminal')
+            ->with(['terminal', 'personnel'])
             ->where('person_name', 'like', $term)
             ->orWhere('employee_no', 'like', $term)
+            ->orWhereHas('personnel', fn ($query) => $query->where('name', 'like', $term))
             ->latest('occurred_at')
             ->limit(5)
             ->get()
             ->map(fn ($e) => [
                 'id' => $e->id,
-                'title' => $e->person_name ?: 'ID: ' . $e->employee_no,
-                'subtitle' => ($e->terminal?->name ?? 'Terminal') . ' · ' . ($e->occurred_at ? $e->occurred_at->copy()->timezone($zone)->format('M d, H:i') : ''),
-                'url' => route('events.index', ['search' => $e->person_name ?: $e->employee_no]),
+                'title' => $e->displayName(),
+                'subtitle' => ($e->terminal?->name ?? 'Terminal').' · '.($e->occurred_at ? $e->occurred_at->copy()->timezone($zone)->format('M d, H:i') : ''),
+                'url' => route('events.index', ['search' => $e->employee_no ?: $e->person_name]),
                 'icon' => 'fa-solid fa-bolt',
-                'badge' => ! $e->isFailedAttempt() ? 'Granted' : 'Denied',
+                'badge' => $e->outcomeLabel(),
             ]);
 
         return response()->json([
