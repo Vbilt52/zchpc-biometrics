@@ -105,6 +105,7 @@
         </form>
 
         <div class="log-actions">
+            @can('devices.diagnostics')
             <form method="POST" action="{{ route('events.import') }}" class="log-action-form js-import-form">
                 @csrf
                 <select name="import_terminal_id" required style="min-width:180px;padding:.6rem .7rem;border:1px solid var(--zchpc-border);border-radius:var(--radius-md);">
@@ -126,6 +127,7 @@
                 <button type="submit" class="btn btn-outline btn-import-all"><i class="fa-solid fa-arrows-rotate"></i> Import all terminals</button>
             </form>
             <span class="log-action-note">Imports every person for the selected date range. Terminals that cannot be reached are reported separately, without stopping the others.</span>
+            @endcan
             <div class="log-exports">
                 <a href="{{ route('events.export.excel', request()->query()) }}" class="btn btn-outline"><i class="fa-solid fa-file-excel"></i> Excel</a>
                 <a href="{{ route('events.export.pdf', request()->query()) }}" class="btn btn-outline" style="color:#b91c1c;border-color:#b91c1c;"><i class="fa-solid fa-file-pdf"></i> PDF</a>

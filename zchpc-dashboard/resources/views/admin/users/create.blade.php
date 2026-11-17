@@ -129,7 +129,7 @@
                     <label style="display:block;font-weight:600;font-size:0.85rem;color:#334155;margin-bottom:0.35rem;">
                         Initial Password
                     </label>
-                    <input type="password" name="password" placeholder="Minimum 8 characters" style="width:100%;max-width:350px;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:0.5rem;font-size:0.9rem;">
+                    <input type="password" name="password" placeholder="Minimum 12 characters" style="width:100%;max-width:350px;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:0.5rem;font-size:0.9rem;">
                 </div>
 
                 <div>

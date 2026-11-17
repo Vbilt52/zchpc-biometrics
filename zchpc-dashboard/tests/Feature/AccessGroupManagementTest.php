@@ -42,7 +42,7 @@ class AccessGroupManagementTest extends TestCase
 
         $this->actingAs($user)
             ->put(route('personnel.update', $person), $this->personData($applications->id, 'EMP-001', 'Updated Person'))
-            ->assertRedirect(route('personnel.show', $person));
+            ->assertRedirect(route('personnel.index'));
 
         $person->refresh();
         $this->assertSame($applications->id, $person->access_group_id);

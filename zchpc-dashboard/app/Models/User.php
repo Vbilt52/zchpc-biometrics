@@ -16,15 +16,22 @@ class User extends Authenticatable
 
     // Primary system roles
     public const ROLE_SUPER_ADMIN = 'super_admin';
+
     public const ROLE_SYSTEMS_ENGINEER = 'systems_engineer';
+
     public const ROLE_DIRECTOR = 'director';
+
     public const ROLE_DEPUTY_DIRECTOR = 'deputy_director';
+
     public const ROLE_HR_OFFICER = 'hr_officer';
+
     public const ROLE_AUDIT_OFFICER = 'audit_officer';
+
     public const ROLE_VIEWER = 'viewer';
 
     // Legacy roles (fully preserved for backward compatibility)
     public const ROLE_ADMIN = 'admin';
+
     public const ROLE_OPERATOR = 'operator';
 
     public const ROLES = [
@@ -46,6 +53,8 @@ class User extends Authenticatable
         self::ROLE_ADMIN,
         self::ROLE_OPERATOR,
     ];
+
+    public const ASSIGNABLE_PERMISSIONS = ['personnel.create', 'personnel.edit', 'personnel.deactivate', 'reports.executive', 'access.audit'];
 
     /**
      * The attributes that are mass assignable.
@@ -100,7 +109,7 @@ class User extends Authenticatable
      */
     public function role(): string
     {
-        return $this->role ?: self::ROLE_ADMIN;
+        return array_key_exists((string) $this->role, self::ROLES) ? $this->role : self::ROLE_VIEWER;
     }
 
     /**

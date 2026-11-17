@@ -104,6 +104,11 @@ class UserAccountController extends Controller
     public function store(Request $request): RedirectResponse
     {
         Gate::authorize('users.manage');
+        foreach (['username', 'email'] as $field) {
+            if (is_string($request->input($field))) {
+                $request->merge([$field => strtolower(trim($request->input($field)))]);
+            }
+        }
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:80'],
@@ -112,10 +117,10 @@ class UserAccountController extends Controller
             'role' => ['required', 'string', Rule::in(array_keys(User::ROLES))],
             'office' => ['nullable', 'string', 'max:100'],
             'password_type' => ['required', 'in:auto,manual'],
-            'password' => ['nullable', 'required_if:password_type,manual', 'string', 'min:8'],
+            'password' => ['nullable', 'required_if:password_type,manual', 'string', 'min:12', 'max:128'],
             'must_change_password' => ['nullable', 'boolean'],
-            'permissions' => ['nullable', 'array'],
-            'permissions.*' => ['string'],
+            'permissions' => ['nullable', 'array', 'max:5'],
+            'permissions.*' => ['string', 'distinct', Rule::in(User::ASSIGNABLE_PERMISSIONS)],
         ]);
 
         $plainPassword = $validated['password_type'] === 'auto'
@@ -139,7 +144,7 @@ class UserAccountController extends Controller
             outcome: AccessAuditLog::OUTCOME_SUCCESS,
             description: "Created login account for {$user->name} ({$user->username}) with role '{$user->roleLabel()}'.",
             context: [
-                'created_user_id' => $user->id,
+                'target_user_id' => $user->id,
                 'created_username' => $user->username,
                 'role' => $user->role,
                 'office' => $user->office,
@@ -192,6 +197,11 @@ class UserAccountController extends Controller
     public function update(Request $request, User $user): RedirectResponse
     {
         Gate::authorize('users.manage');
+        foreach (['username', 'email'] as $field) {
+            if (is_string($request->input($field))) {
+                $request->merge([$field => strtolower(trim($request->input($field)))]);
+            }
+        }
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:80'],
@@ -199,8 +209,8 @@ class UserAccountController extends Controller
             'email' => ['required', 'string', 'email', 'max:120', Rule::unique('users', 'email')->ignore($user->id)],
             'role' => ['required', 'string', Rule::in(array_keys(User::ROLES))],
             'office' => ['nullable', 'string', 'max:100'],
-            'permissions' => ['nullable', 'array'],
-            'permissions.*' => ['string'],
+            'permissions' => ['nullable', 'array', 'max:5'],
+            'permissions.*' => ['string', 'distinct', Rule::in(User::ASSIGNABLE_PERMISSIONS)],
         ]);
 
         // Prevent demoting the final active Super Admin
@@ -255,7 +265,7 @@ class UserAccountController extends Controller
 
         $validated = $request->validate([
             'password_type' => ['required', 'in:auto,manual'],
-            'password' => ['nullable', 'required_if:password_type,manual', 'string', 'min:8'],
+            'password' => ['nullable', 'required_if:password_type,manual', 'string', 'min:12', 'max:128'],
             'must_change_password' => ['nullable', 'boolean'],
         ]);
 
@@ -345,8 +355,8 @@ class UserAccountController extends Controller
             ->limit(40)
             ->get();
 
-        $targetLogs = AccessAuditLog::where('subject_label', $user->name)
-            ->orWhere('description', 'like', "%{$user->username}%")
+        $targetLogs = AccessAuditLog::where('context->target_user_id', $user->id)
+            ->orWhere('context->created_user_id', $user->id)
             ->latest('id')
             ->limit(40)
             ->get();
@@ -358,4 +368,3 @@ class UserAccountController extends Controller
         ]);
     }
 }
-
