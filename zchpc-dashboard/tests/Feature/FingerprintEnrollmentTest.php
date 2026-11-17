@@ -28,6 +28,40 @@ class FingerprintEnrollmentTest extends TestCase
 
     private mixed $deviceRecord = null;
 
+    public function test_pristine_draft_collision_uses_its_own_identifier_without_overwriting_the_device_owner(): void
+    {
+        Queue::fake();
+        $terminal = $this->terminal();
+        $person = $this->person();
+        $person->update(['status' => Personnel::STATUS_DRAFT]);
+        $original = ['employeeNo' => $person->employee_no, 'name' => 'Different Device Owner', 'userType' => 'normal'];
+        $records = [$person->employee_no => $original];
+        $client = Mockery::mock(HikvisionClient::class);
+        $client->shouldReceive('post')->with('/ISAPI/AccessControl/UserInfo/Search', Mockery::type('array'))
+            ->andReturnUsing(function ($path, $payload) use (&$records) {
+                $id = $payload['UserInfoSearchCond']['EmployeeNoList'][0]['employeeNo'];
+                $record = $records[$id] ?? null;
+
+                return ['UserInfoSearch' => ['responseStatusStrg' => $record ? 'OK' : 'NO MATCH', 'totalMatches' => $record ? 1 : 0, 'UserInfo' => $record ? [$record] : []]];
+            });
+        $client->shouldReceive('post')->with('/ISAPI/AccessControl/UserInfo/Record', Mockery::type('array'))->once()
+            ->andReturnUsing(function ($path, $payload) use (&$records) {
+                $records[$payload['UserInfo']['employeeNo']] = $payload['UserInfo'];
+
+                return ['statusCode' => 1];
+            });
+        $client->shouldNotReceive('put');
+        $manager = Mockery::mock(DeviceManager::class);
+        $manager->shouldReceive('device')->with($terminal->name)->andReturn($client);
+        $this->app->instance(DeviceManager::class, $manager);
+        $enrollment = $this->app->make(FingerprintEnrollmentService::class)->start($person, $terminal, 1);
+        $this->assertSame($original, $records[$original['employeeNo']]);
+        $this->assertSame($person->personnel_code, $person->fresh()->employee_no);
+        $this->assertSame($person->personnel_code, $enrollment->employee_no);
+        $this->assertSame('blackList', $records[$person->personnel_code]['userType']);
+        $this->assertSame(FingerprintEnrollment::STATUS_PENDING, $enrollment->status);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

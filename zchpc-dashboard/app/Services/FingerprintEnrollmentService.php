@@ -112,6 +112,7 @@ class FingerprintEnrollmentService
             $personnel->name,
             $personnel->phone_number,
         );
+        $personnel->refresh();
 
         $enrollment = FingerprintEnrollment::query()->create([
             'personnel_id' => $personnel->id,
