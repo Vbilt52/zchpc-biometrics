@@ -34,7 +34,7 @@
         @forelse($rows as $row)
             <tr>
                 <td>{{ $row['date'] }}</td>
-                <td><strong>{{ $row['owner'] }}</strong><div class="small">ID: {{ $row['employee_no'] }}<br>{{ $row['department'] ?? '' }}</div></td>
+                <td><strong>{{ $row['owner'] }}</strong><div class="small">ID: {{ $row['employee_id'] ?? $row['employee_no'] }}<br>{{ $row['department'] ?? '' }}</div></td>
                 <td>{{ $row['terminal_name'] }}</td>
                 <td>{{ $row['first_in']->format('H:i:s') }}<div class="small">Fingerprint</div></td>
                 <td>{{ $row['logout']?->format('d M Y H:i:s') ?? 'Not captured' }}</td>

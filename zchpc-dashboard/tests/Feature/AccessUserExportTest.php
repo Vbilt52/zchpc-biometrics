@@ -16,8 +16,11 @@ class AccessUserExportTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private Personnel $person;
+
     private Door $door;
+
     private Terminal $terminal;
 
     protected function setUp(): void
@@ -100,8 +103,9 @@ class AccessUserExportTest extends TestCase
         $this->assertStringContainsString('Server Room Entrance', $content);
         $this->assertStringContainsString('Main Gate Controller', $content);
         $this->assertStringContainsString('192.168.60.40', $content);
-        // Formula injection protection and leading zero preservation
-        $this->assertStringContainsString("'00987", $content);
+        $this->assertStringContainsString('HPC001', $content);
+        $this->assertDatabaseHas('personnel', ['employee_no' => '00987']);
+        $this->assertStringContainsString("'+263771234567", $content);
     }
 
     public function test_admin_can_download_pdf_report(): void

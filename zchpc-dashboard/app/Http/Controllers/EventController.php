@@ -45,7 +45,7 @@ class EventController extends Controller
         $terminals = Terminal::orderBy('phase')->orderBy('name')->get();
         $doors = Door::with('terminal')->orderBy('name')->get();
         $doorsByTerminalDoor = $doors->keyBy(fn ($d) => $d->terminal_id.'_'.$d->door_no);
-        $personnel = Personnel::withTrashed()->orderBy('name')->get(['id', 'employee_no', 'name']);
+        $personnel = Personnel::withTrashed()->orderBy('name')->get(['id', 'employee_no', 'personnel_code', 'name']);
         $syncStates = TerminalEventSync::all()->keyBy('terminal_id');
 
         return view('events', compact('events', 'terminals', 'doors', 'doorsByTerminalDoor', 'personnel', 'filters', 'syncStates'));
@@ -181,7 +181,7 @@ class EventController extends Controller
         $rows = $this->reportEvents($filters)->map(fn (AccessEvent $event) => [
             app(AttendanceRegisterService::class)->eventTime($event)?->format('Y-m-d H:i:s') ?? 'Unknown',
             $event->terminal?->name ?? 'Removed terminal', $event->entranceLabel(),
-            $event->displayName(), $event->employee_no ?? '', $event->methodLabel(),
+            $event->displayName(), $event->personnel?->employee_id ?? $event->employee_no ?? '', $event->methodLabel(),
             $event->outcomeLabel(), $event->directionLabel(),
         ]);
 
@@ -258,7 +258,7 @@ class EventController extends Controller
             $query->where(function (Builder $query) use ($term): void {
                 $query->where('person_name', 'like', $term)
                     ->orWhere('employee_no', 'like', $term)
-                    ->orWhereHas('personnel', fn (Builder $q) => $q->where('name', 'like', $term));
+                    ->orWhereHas('personnel', fn (Builder $q) => $q->where('name', 'like', $term)->orWhere('personnel_code', 'like', $term));
             });
         }
 

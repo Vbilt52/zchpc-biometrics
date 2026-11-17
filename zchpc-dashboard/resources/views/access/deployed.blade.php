@@ -18,7 +18,7 @@
         <div>
             <h2 style="margin:0;">{{ $personnel->name }} is registered</h2>
             <p class="hint" style="margin-top:.3rem;">
-                <code>{{ $personnel->employee_no }}</code> · {{ $personnel->accessGroup?->name ?? $personnel->department }}
+                <code>{{ $personnel->employee_id }}</code> · {{ $personnel->accessGroup?->name ?? $personnel->department }}
                 · {{ $personnel->accessStateLabel() }}
             </p>
         </div>

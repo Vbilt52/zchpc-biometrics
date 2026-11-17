@@ -9,7 +9,6 @@ use App\Services\PendingTerminalSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Shaykhnazar\HikvisionIsapi\Client\DeviceManager;
 use Shaykhnazar\HikvisionIsapi\Client\HikvisionClient;
@@ -25,7 +24,7 @@ class SuperFingerprintController extends Controller
                 ->latest('updated_at')
                 ->get(),
             'terminals' => Terminal::apiManaged()->orderBy('phase')->orderBy('name')->get(),
-            'personnel' => Personnel::orderBy('name')->get(['id', 'employee_no', 'name']),
+            'personnel' => Personnel::orderBy('name')->get(['id', 'employee_no', 'personnel_code', 'name']),
         ]);
     }
 

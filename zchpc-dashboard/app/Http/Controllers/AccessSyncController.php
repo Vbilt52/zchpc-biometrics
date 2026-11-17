@@ -43,7 +43,7 @@ class AccessSyncController extends Controller
                 'no_access' => Personnel::query()->onboarded()->whereDoesntHave('doors')->count(),
             ],
             'terminals' => Terminal::apiManaged()->orderBy('name')->get(),
-            'people' => Personnel::query()->onboarded()->orderBy('name')->get(['id', 'name', 'employee_no']),
+            'people' => Personnel::query()->onboarded()->orderBy('name')->get(['id', 'name', 'employee_no', 'personnel_code']),
             'events' => DeviceSyncEvent::query()->with('terminal')->latest('id')->limit(30)->get(),
         ]);
     }

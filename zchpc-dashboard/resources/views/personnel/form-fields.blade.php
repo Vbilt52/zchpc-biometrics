@@ -7,8 +7,9 @@
     <h2>Personal details and access dates</h2>
     <p class="form-help">Dates use {{ $zone }}. Access starts and expires at the times below. Department and date added are local records; name, phone, access status, validity and device permissions are sent to the devices.</p>
     <div class="person-fields">
-        <div><label for="employee_no">Employee ID</label><input id="employee_no" name="employee_no" value="{{ old('employee_no', $personnel->employee_no ?? '') }}" maxlength="32" required @readonly($editing && $personnel->terminals->isNotEmpty())>
-            <small>Device-linked IDs stay fixed to protect fingerprint ownership and history.</small></div>
+        <div><label for="employee_no">Employee ID</label><input id="employee_no" value="{{ $personnel->employee_id ?? \App\Services\PersonnelNumbering::preview() }}" readonly>
+            <input type="hidden" name="employee_no" value="{{ $personnel->employee_no ?? '__AUTO__' }}">
+            <small>Assigned automatically when saved. Existing numbers are reserved.</small></div>
         <div><label for="person-name">Full name</label><input id="person-name" name="name" value="{{ old('name', $personnel->name ?? '') }}" placeholder="e.g. Prince" maxlength="64" required></div>
         <div><label for="person-type">User type</label><select id="person-type" name="user_type">
             @foreach(['normal' => 'Normal user', 'visitor' => 'Visitor', 'blocklist' => 'Blocklist — deny access'] as $value => $label)
@@ -19,12 +20,13 @@
             <option value="1" @selected((string) old('valid_enabled', ($personnel->valid_enabled ?? true) ? '1' : '0') === '1')>Enabled within access dates</option>
             <option value="0" @selected((string) old('valid_enabled', ($personnel->valid_enabled ?? true) ? '1' : '0') === '0')>Disabled — deny access on assigned devices</option>
         </select></div>
+        <div><label for="job-title">Job title</label><input id="job-title" name="job_title" maxlength="120" value="{{ old('job_title', $personnel->job_title ?? '') }}"></div>
         <div><label for="phone-number">Phone number</label><input id="phone-number" name="phone_number" value="{{ old('phone_number', $personnel->phone_number ?? '') }}" maxlength="32"></div>
         <div><label for="access-group">Department / access group</label><select id="access-group" name="access_group_id" required><option value="">Select department</option>
             @foreach($accessGroups as $group)<option value="{{ $group->id }}" @selected((string) old('access_group_id', $personnel->access_group_id ?? '') === (string) $group->id)>{{ $group->name }}</option>@endforeach
         </select></div>
         <div><label for="added-at">Date added (record date)</label><input type="datetime-local" id="added-at" name="added_at" value="{{ old('added_at', ($personnel->added_at ?? now())->copy()->timezone($zone)->format('Y-m-d\TH:i')) }}"><small>Does not change the original audit creation timestamp.</small></div>
-        <div><label for="begin-time">Access starts</label><input type="datetime-local" id="begin-time" name="begin_time" required value="{{ old('begin_time', ($personnel->begin_time ?? now())->copy()->timezone($zone)->format('Y-m-d\TH:i')) }}"></div>
+        <div><label for="begin-time">Access starts</label><input type="datetime-local" id="begin-time" name="begin_time" required value="{{ old('begin_time', ($personnel->begin_time ?? now($zone)->startOfYear())->copy()->timezone($zone)->format('Y-m-d\TH:i')) }}"></div>
         <div><label for="end-time">Access expires</label><input type="datetime-local" id="end-time" name="end_time" required value="{{ old('end_time', ($personnel->end_time ?? now()->addYear())->copy()->timezone($zone)->format('Y-m-d\TH:i')) }}"></div>
     </div>
 </div>

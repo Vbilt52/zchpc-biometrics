@@ -85,7 +85,7 @@
                 <label class="form-label" for="ids">People</label>
                 <select class="form-select" id="ids" name="ids[]" multiple size="8" style="max-width:520px;">
                     @foreach($people as $person)
-                        <option value="{{ $person->id }}">{{ $person->name }} · {{ $person->employee_no }}</option>
+                        <option value="{{ $person->id }}">{{ $person->name }} · {{ $person->employee_id }}</option>
                     @endforeach
                 </select>
                 <p class="hint">Use Ctrl (Windows) or Cmd (macOS) to select more than one person.</p>
@@ -148,7 +148,7 @@
             @forelse($events as $event)
                 <tr>
                     <td class="hint">{{ $event->created_at?->format('d M Y H:i:s') }}</td>
-                    <td>{{ $event->person_name ?? '—' }} <span class="hint"><code>{{ $event->employee_no }}</code></span></td>
+                    <td>{{ $event->person_name ?? '—' }} <span class="hint"><code>{{ ($event->personnel?->employee_id ?? $event->employee_no) }}</code></span></td>
                     <td>{{ $event->terminal_name }}</td>
                     <td>{{ $event->operationLabel() }}</td>
                     <td><span class="badge badge-{{ $event->tone() === 'muted' ? 'muted' : $event->tone() }}">{{ $event->statusLabel() }}</span></td>

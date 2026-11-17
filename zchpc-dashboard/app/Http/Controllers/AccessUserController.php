@@ -143,7 +143,7 @@ class AccessUserController extends Controller
                 $lastAccess = $p->last_access_at ? Carbon::parse($p->last_access_at)->format('Y-m-d H:i') : 'Never';
 
                 fputcsv($out, [
-                    $this->safeCsv($p->employee_no),
+                    $this->safeCsv($p->employee_id),
                     $p->name,
                     $p->accessGroup?->name ?? $p->department ?? 'General Staff',
                     $p->roleLabel(),
@@ -284,6 +284,7 @@ class AccessUserController extends Controller
         if ($search !== '') {
             $query->where(function ($query) use ($search): void {
                 $query->where('name', 'like', '%'.$search.'%')
+                    ->orWhere('personnel_code', 'like', '%'.$search.'%')
                     ->orWhere('employee_no', 'like', '%'.$search.'%')
                     ->orWhere('email', 'like', '%'.$search.'%')
                     ->orWhere('phone_number', 'like', '%'.$search.'%');
@@ -580,7 +581,7 @@ class AccessUserController extends Controller
             'confirm' => ['accepted'],
         ]);
 
-        if ($validated['confirm_employee_no'] !== $personnel->employee_no) {
+        if ($validated['confirm_employee_no'] !== $personnel->employee_id && $validated['confirm_employee_no'] !== $personnel->employee_no) {
             return back()->with('error', 'The typed employee ID does not match. Nothing was deleted.');
         }
 

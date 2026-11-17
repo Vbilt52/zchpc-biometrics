@@ -262,7 +262,7 @@
             @endphp
             <tr>
                 <td style="text-align: center; color: #64748b;">{{ $index + 1 }}</td>
-                <td><strong style="font-family: monospace;">{{ $p->employee_no }}</strong></td>
+                <td><strong style="font-family: monospace;">{{ $p->employee_id }}</strong></td>
                 <td>
                     <strong>{{ $p->name }}</strong>
                     @if($p->phone_number)

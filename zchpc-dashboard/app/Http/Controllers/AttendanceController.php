@@ -94,7 +94,7 @@ class AttendanceController extends Controller
             fputcsv($output, ['Date', 'Fingerprint owner', 'Employee ID', 'Terminal', 'Department', 'Login time', 'Latest fingerprint scan', 'Logout time', 'Logout source', 'Recorded by', 'Reason', 'Status', 'Fingerprint scans', 'Timezone'], ',', '"', '');
             foreach ($rows as $row) {
                 $values = [
-                    $row['date'], $row['owner'], $row['employee_no'], $row['terminal_name'], $row['department'] ?? '',
+                    $row['date'], $row['owner'], $row['employee_id'] ?? $row['employee_no'], $row['terminal_name'], $row['department'] ?? '',
                     $row['first_in']->format('Y-m-d H:i:s'), $row['last_scan']->format('Y-m-d H:i:s'),
                     $row['logout']?->format('Y-m-d H:i:s') ?? '',
                     $row['checkout'] ? 'Manual operator record' : 'Not captured (exit button)',

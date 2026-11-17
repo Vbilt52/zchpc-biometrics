@@ -104,7 +104,7 @@
             @endphp
             <tr>
                 <td>{{ $index + 1 }}</td>
-                <td><strong>{{ $p->employee_no }}</strong></td>
+                <td><strong>{{ $p->employee_id }}</strong></td>
                 <td>{{ $p->name }}</td>
                 <td>{{ $p->accessGroup?->name ?? $p->department ?? 'General' }}</td>
                 <td class="badge {{ strtolower($statusLabel) === 'active' ? 'active' : 'suspended' }}">{{ $statusLabel }}</td>

@@ -4,6 +4,7 @@
 @section('header', 'User profile')
 
 @section('content')
+<div class="hint">Job title: {{ $personnel->job_title ?: 'Not specified' }}</div>
 @include('access.partials.alerts')
 
 @php
@@ -26,7 +27,7 @@
             @endif
             <div>
                 <h2 style="margin:0;">{{ $personnel->name }}</h2>
-                <div class="hint" style="margin-top:.2rem;"><code>{{ $personnel->employee_no }}</code> · {{ $personnel->accessGroup?->name ?? $personnel->department ?? 'No department' }}</div>
+                <div class="hint" style="margin-top:.2rem;"><code>{{ $personnel->employee_id }}</code> · {{ $personnel->accessGroup?->name ?? $personnel->department ?? 'No department' }}</div>
                 <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem;">
                     <span class="badge badge-{{ $personnel->accessStateTone() === 'muted' ? 'muted' : $personnel->accessStateTone() }}">{{ $personnel->accessStateLabel() }}</span>
                     <span class="badge {{ $personnel->roleBadgeClass() }}">{{ $personnel->roleLabel() }}</span>
@@ -342,7 +343,7 @@
                     <form method="POST" action="{{ route('access.users.destroy', $personnel) }}" onsubmit="return confirm('Remove this person locally and queue deletion on their devices? Offline devices may retain access until they reconnect.')">
                         @csrf @method('DELETE')
                         <div class="form-field">
-                            <label class="form-label" for="confirm_employee_no">Type <code>{{ $personnel->employee_no }}</code> to confirm</label>
+                            <label class="form-label" for="confirm_employee_no">Type <code>{{ $personnel->employee_id }}</code> to confirm</label>
                             <input class="form-input" id="confirm_employee_no" name="confirm_employee_no" required autocomplete="off">
                         </div>
                         <label style="display:flex;gap:.5rem;align-items:flex-start;font-size:.8rem;margin-bottom:.5rem;">

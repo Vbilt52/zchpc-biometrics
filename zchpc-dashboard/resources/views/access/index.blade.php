@@ -71,7 +71,7 @@
                 @foreach($drafts as $draft)
                     <tr>
                         <td style="font-weight:600;">{{ $draft->name }}</td>
-                        <td><code>{{ $draft->employee_no }}</code></td>
+                        <td><code>{{ $draft->employee_id }}</code></td>
                         <td>{{ $draft->accessGroup?->name ?? $draft->department ?? '—' }}</td>
                         <td class="hint">{{ $draft->updated_at?->diffForHumans() }}</td>
                         <td>
@@ -161,7 +161,7 @@
                             @endif
                             <div>
                                 <div style="font-weight:600;">{{ $person->name }}</div>
-                                <div style="font-size:.75rem;color:var(--zchpc-text-muted);"><code>{{ $person->employee_no }}</code></div>
+                                <div style="font-size:.75rem;color:var(--zchpc-text-muted);"><code>{{ $person->employee_id }}</code></div>
                             </div>
                         </div>
                     </td>

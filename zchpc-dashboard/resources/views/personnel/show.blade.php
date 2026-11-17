@@ -4,6 +4,7 @@
 @section('header', 'Personnel Detail')
 
 @section('content')
+<div class="hint">Job title: {{ $personnel->job_title ?: 'Not specified' }}</div>
 
 @if(session('success'))
 <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.35);border-radius:var(--radius-md);padding:0.875rem 1.25rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:0.75rem;">
@@ -35,7 +36,7 @@
             </div>
             <div style="padding:3rem 1.25rem 1.25rem;">
                 <div style="font-size:1.25rem;font-weight:700;">{{ $personnel->name }}</div>
-                <div style="font-family:monospace;font-size:0.875rem;color:var(--zchpc-primary);margin-bottom:.5rem;">{{ $personnel->employee_no }}</div>
+                <div style="font-family:monospace;font-size:0.875rem;color:var(--zchpc-primary);margin-bottom:.5rem;">{{ $personnel->employee_id }}</div>
                 <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;">
                     <span class="badge {{ $personnel->roleBadgeClass() }}">{{ $personnel->roleLabel() }}</span>
                     @if($personnel->isActive())

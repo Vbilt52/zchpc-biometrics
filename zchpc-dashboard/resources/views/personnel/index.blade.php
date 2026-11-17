@@ -237,7 +237,7 @@ function downloadPersonnelPDF() {
                 <tr>
                     @can('personnel.deactivate') @include('personnel.selection-checkbox') @endcan
                     <td style="font-family:monospace;font-weight:600;color:var(--zchpc-primary);">
-                        {{ $person->employee_no }}
+                        {{ $person->employee_id }}
                     </td>
                     <td>
                         <div style="display:flex;align-items:center;gap:0.75rem;">

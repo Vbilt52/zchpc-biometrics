@@ -53,6 +53,7 @@ class PersonnelController extends Controller
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('personnel_code', 'like', "%{$search}%")
                     ->orWhere('employee_no', 'like', "%{$search}%")
                     ->orWhere('phone_number', 'like', "%{$search}%");
             });
@@ -67,7 +68,7 @@ class PersonnelController extends Controller
         }
 
         // Sort in clean numerical order (1, 2, 3 ... 145)
-        $query->orderByRaw('CAST(employee_no AS INTEGER) ASC')->orderBy('employee_no', 'ASC');
+        $query->orderByRaw('LENGTH(personnel_code) ASC')->orderBy('personnel_code', 'ASC');
 
         $personnel = $query->paginate(20)->withQueryString();
         if ($personnel->currentPage() > $personnel->lastPage()) {
@@ -102,6 +103,7 @@ class PersonnelController extends Controller
             'begin_time' => PersonnelRules::begin(),
             'end_time' => PersonnelRules::end(),
             'added_at' => 'nullable|date',
+            'job_title' => ['nullable', 'string', 'max:120', 'not_regex:/[<>\x00-\x1F]/'],
             'phone_number' => PersonnelRules::phone(),
             'access_group_id' => 'required|exists:access_groups,id',
             'door_right' => ['nullable', 'string', 'max:255', 'regex:/^[0-9]+(,[0-9]+)*$/'],
@@ -137,6 +139,7 @@ class PersonnelController extends Controller
             'end_time' => Carbon::parse($validated['end_time'], config('attendance.timezone'))->utc(),
             'door_right' => $doorRight,
             'right_plan' => $rightPlan,
+            'job_title' => $validated['job_title'] ?? null,
             'phone_number' => $validated['phone_number'] ?? null,
             'added_at' => isset($validated['added_at']) ? Carbon::parse($validated['added_at'], config('attendance.timezone'))->utc() : now(),
             'access_group_id' => $accessGroup->id,
@@ -252,7 +255,7 @@ class PersonnelController extends Controller
             fputcsv($out, ['Employee No', 'Name', 'Role', 'Status', 'Valid From', 'Valid Until', 'Door Channels', 'Phone', 'Assigned Devices (confirmation on person details)']);
             foreach ($personnel as $p) {
                 fputcsv($out, [
-                    $p->employee_no,
+                    $p->employee_id,
                     $p->name,
                     $p->roleLabel(),
                     $p->isActive() ? 'Active' : 'Inactive',
@@ -320,7 +323,7 @@ class PersonnelController extends Controller
             $validity = ($p->begin_time ? $p->begin_time->format('d/m/Y') : '—').' to '.($p->end_time ? $p->end_time->format('d/m/Y') : '—');
 
             $html .= '<tr>
-                <td style="font-family: Consolas, monospace; font-weight: bold;">'.htmlspecialchars($p->employee_no).'</td>
+                <td style="font-family: Consolas, monospace; font-weight: bold;">'.htmlspecialchars($p->employee_id).'</td>
                 <td><strong>'.htmlspecialchars($p->name).'</strong></td>
                 <td>'.htmlspecialchars($p->roleLabel()).'</td>
                 <td class="'.$statusClass.'"><strong>'.$statusText.'</strong></td>
@@ -437,6 +440,7 @@ class PersonnelController extends Controller
             'begin_time' => PersonnelRules::begin(),
             'end_time' => PersonnelRules::end(),
             'added_at' => 'nullable|date',
+            'job_title' => ['nullable', 'string', 'max:120', 'not_regex:/[<>\x00-\x1F]/'],
             'phone_number' => PersonnelRules::phone(),
             'access_group_id' => 'required|exists:access_groups,id',
             'door_right' => ['nullable', 'string', 'max:255', 'regex:/^[0-9]+(,[0-9]+)*$/'],
@@ -472,6 +476,7 @@ class PersonnelController extends Controller
             'end_time' => Carbon::parse($validated['end_time'], config('attendance.timezone'))->utc(),
             'door_right' => $doorRight,
             'right_plan' => $rightPlan,
+            'job_title' => $validated['job_title'] ?? null,
             'phone_number' => $validated['phone_number'] ?? null,
             'added_at' => isset($validated['added_at']) ? Carbon::parse($validated['added_at'], config('attendance.timezone'))->utc() : ($personnel->added_at ?? now()),
             'access_group_id' => $accessGroup->id,

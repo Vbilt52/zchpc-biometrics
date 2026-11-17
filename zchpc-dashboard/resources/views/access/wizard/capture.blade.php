@@ -44,7 +44,7 @@
                     </p>
                     <p style="margin:0;font-size:.85rem;">
                         Supported alternative: enroll the person directly on the terminal (add employee
-                        <code>{{ $personnel->employee_no }}</code>), then import the record from the device.
+                        <code>{{ $personnel->employee_id }}</code>), then import the record from the device.
                         You can continue below and grant doors now; the fingerprint can be enrolled again from the profile later.
                     </p>
                 </div>
@@ -114,7 +114,7 @@
                         Continue without fingerprint
                     </button>
                 </form>
-                <p class="hint">Use this only when the device cannot capture remotely. The person can be enrolled locally and imported later.</p>
+                <p class="hint">You can finish setup without a fingerprint and enroll it later from the person’s profile.</p>
             @endif
 
             <a href="{{ route('access.wizard.device') }}" class="btn btn-outline" style="justify-content:center;">

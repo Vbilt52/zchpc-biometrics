@@ -10,6 +10,10 @@ use App\Models\Terminal;
 use App\Models\User;
 use App\Services\DeviceClientFactory;
 use App\Services\FingerprintEnrollmentService;
+use GuzzleHttp\Client;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
@@ -23,6 +27,43 @@ class FingerprintEnrollmentTest extends TestCase
     use RefreshDatabase;
 
     private mixed $deviceRecord = null;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Exercise the production capture path; this simulated firmware requires SetUp.
+        $this->app->instance(Client::class, new Client([
+            'handler' => HandlerStack::create(new MockHandler([
+                new Response(404),
+            ])),
+        ]));
+    }
+
+    public function test_captured_template_is_not_confirmed_without_device_readback(): void
+    {
+        Queue::fake();
+        $terminal = $this->terminal();
+        $person = $this->person();
+        $this->provisioner($terminal);
+        $this->app->instance(Client::class, new Client([
+            'handler' => HandlerStack::create(new MockHandler([
+                new Response(200, [], '<CaptureFingerPrint><fingerData>test-template</fingerData></CaptureFingerPrint>'),
+            ])),
+        ]));
+        $client = Mockery::mock(HikvisionClient::class);
+        $client->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrint/SetUp', Mockery::type('array'))
+            ->once()->andReturn(['statusCode' => 1]);
+        $client->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrint/Search', Mockery::type('array'))
+            ->twice()->andReturn(['FingerPrintSearch' => ['MatchList' => []]]);
+        $factory = Mockery::mock(DeviceClientFactory::class);
+        $factory->shouldReceive('forTerminal')->andReturn($client);
+        $this->app->instance(DeviceClientFactory::class, $factory);
+        $service = $this->app->make(FingerprintEnrollmentService::class);
+        $enrollment = $service->start($person, $terminal, 1);
+        $service->process($enrollment);
+        $this->assertSame(FingerprintEnrollment::STATUS_FAILED, $enrollment->fresh()->status);
+        $this->assertDatabaseMissing('access_audit_logs', ['action' => 'enrollment_confirmed']);
+    }
 
     protected function tearDown(): void
     {

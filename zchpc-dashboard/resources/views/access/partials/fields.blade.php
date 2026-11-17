@@ -1,7 +1,7 @@
 @php
     $tz = config('attendance.timezone');
     $employeeIdLocked = $employeeIdLocked ?? false;
-    $beginValue = old('begin_time', $personnel?->begin_time?->copy()->timezone($tz)->format('Y-m-d\TH:i'));
+    $beginValue = old('begin_time', ($personnel?->begin_time?->copy()->timezone($tz) ?? now($tz)->startOfYear())->format('Y-m-d\TH:i'));
     $endValue = old('end_time', $personnel?->end_time?->copy()->timezone($tz)->format('Y-m-d\TH:i'));
     $selectedDepartment = old('department', $personnel?->access_group_id);
 @endphp
@@ -24,14 +24,9 @@
 
     <div class="form-field">
         <label class="form-label" for="employee_no">Employee / user ID</label>
-        <input class="form-input" id="employee_no" name="employee_no" value="{{ old('employee_no', $personnel?->employee_no) }}"
-               maxlength="32" required pattern="[A-Za-z0-9._-]+" autocomplete="off"
-               @if($employeeIdLocked) readonly style="background:var(--zchpc-bg);" @endif>
-        @if($employeeIdLocked)
-            <p class="hint">Locked: this ID is already tied to a device credential and access history.</p>
-        @else
-            <p class="hint">Letters, numbers, dots, hyphens and underscores. Must be unique.</p>
-        @endif
+        <input class="form-input" id="employee_no" value="{{ $personnel?->employee_id ?? \App\Services\PersonnelNumbering::preview() }}" readonly>
+        <input type="hidden" name="employee_no" value="{{ $personnel?->employee_no ?? '__AUTO__' }}">
+        <p class="hint">Assigned automatically when saved. Existing numbers are reserved.</p>
         @error('employee_no')<p class="form-error">{{ $message }}</p>@enderror
     </div>
 
@@ -69,6 +64,9 @@
     </div>
 
     <div class="form-field">
+        <label class="form-label" for="job_title">Job title</label>
+        <input class="form-input" id="job_title" name="job_title" maxlength="120" value="{{ old('job_title', $personnel?->job_title) }}">
+        @error('job_title')<p class="form-error">{{ $message }}</p>@enderror
         <label class="form-label" for="phone_number">Phone (optional)</label>
         <input class="form-input" id="phone_number" name="phone_number" value="{{ old('phone_number', $personnel?->phone_number) }}" maxlength="32" autocomplete="off">
         @error('phone_number')<p class="form-error">{{ $message }}</p>@enderror
