@@ -18,6 +18,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Mockery;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Shaykhnazar\HikvisionIsapi\Client\DeviceManager;
 use Shaykhnazar\HikvisionIsapi\Client\HikvisionClient;
 use Tests\TestCase;
@@ -172,6 +173,11 @@ class FingerprintEnrollmentTest extends TestCase
         $terminal = $this->terminal();
         $person = $this->person();
         $this->provisioner($terminal);
+        $this->app->instance(Client::class, new Client([
+            'handler' => HandlerStack::create(new MockHandler([
+                new Response(200, [], '<CaptureFingerPrint><fingerData>test-template</fingerData></CaptureFingerPrint>'),
+            ])),
+        ]));
         $this->enrollmentClient(
             ['FingerPrintStatus' => ['status' => 'success', 'StatusList' => [['cardReaderRecvStatus' => 1]]]],
             ['FingerPrintSearch' => ['MatchList' => [['fingerPrintID' => 2, 'fingerType' => 'normalFP']]]],
@@ -231,7 +237,7 @@ class FingerprintEnrollmentTest extends TestCase
 
         $client = Mockery::mock(HikvisionClient::class);
         $client->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrint/SetUp', Mockery::type('array'))
-            ->once()->andReturn(['FingerPrintStatus' => ['status' => 'failed', 'StatusList' => [['cardReaderRecvStatus' => 4]]]]);
+            ->once()->andReturn(['FingerPrintStatus' => ['status' => 'failed', 'StatusList' => [['cardReaderRecvStatus' => 3]]]]);
         $client->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrint/Search', Mockery::type('array'))->never();
 
         $factory = Mockery::mock(DeviceClientFactory::class);
@@ -247,6 +253,49 @@ class FingerprintEnrollmentTest extends TestCase
         $this->assertSame(FingerprintEnrollment::STATUS_FAILED, $enrollment->status);
         $this->assertStringContainsString('quality', (string) $enrollment->message);
         $this->assertDatabaseHas('access_audit_logs', ['action' => 'enrollment_failed', 'outcome' => 'failure']);
+    }
+
+    public static function rejectedReaderStatuses(): array
+    {
+        return [
+            'duplicate' => [5, 'already exists'],
+            'offline module' => [2, 'module is offline'],
+            'full memory' => [4, 'memory is full'],
+            'no configuration' => [8, 'did not accept configuration'],
+            'mixed readers' => [5, 'already exists', true],
+        ];
+    }
+
+    #[DataProvider('rejectedReaderStatuses')]
+    public function test_reader_rejection_overrides_success_acknowledgement(int $code, string $message, bool $mixed = false): void
+    {
+        Queue::fake();
+        $terminal = $this->terminal();
+        $person = $this->person();
+        $this->provisioner($terminal);
+        $this->app->instance(Client::class, new Client([
+            'handler' => HandlerStack::create(new MockHandler([
+                new Response(200, [], '<CaptureFingerPrint><fingerData>test-template</fingerData></CaptureFingerPrint>'),
+            ])),
+        ]));
+        $statuses = [['cardReaderRecvStatus' => (string) $code]];
+        if ($mixed) {
+            array_unshift($statuses, ['cardReaderRecvStatus' => 1]);
+        }
+        $client = Mockery::mock(HikvisionClient::class);
+        $client->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrint/SetUp', Mockery::type('array'))
+            ->once()->andReturn(['statusCode' => 1, 'FingerPrintStatus' => ['status' => 'success', 'StatusList' => $statuses]]);
+        $client->shouldNotReceive('put');
+        $factory = Mockery::mock(DeviceClientFactory::class);
+        $factory->shouldReceive('forTerminal')->andReturn($client);
+        $this->app->instance(DeviceClientFactory::class, $factory);
+        $service = $this->app->make(FingerprintEnrollmentService::class);
+        $enrollment = $service->start($person, $terminal, 1);
+        $service->process($enrollment);
+        $this->assertSame(FingerprintEnrollment::STATUS_FAILED, $enrollment->fresh()->status);
+        $this->assertStringContainsString($message, $enrollment->fresh()->message);
+        $this->assertStringNotContainsString('test-template', $enrollment->fresh()->device_response);
+        $this->assertDatabaseMissing('access_audit_logs', ['action' => 'enrollment_confirmed']);
     }
 
     public function test_an_offline_terminal_cannot_be_asked_to_capture(): void
