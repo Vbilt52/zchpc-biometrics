@@ -6,6 +6,7 @@ use App\Models\AccessAuditLog;
 use App\Models\AccessGroup;
 use App\Models\Personnel;
 use App\Models\Terminal;
+use App\Rules\PersonnelRules;
 use App\Services\AccessAuditLogger;
 use App\Services\DeviceActivityLogger;
 use App\Services\PendingTerminalSyncService;
@@ -90,20 +91,20 @@ class PersonnelController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'employee_no' => 'required|string|max:32|unique:personnel,employee_no',
-            'name' => 'required|string|max:64',
+            'employee_no' => PersonnelRules::employeeNo(),
+            'name' => PersonnelRules::name(),
             'user_type' => 'required|in:normal,visitor,blocklist',
             'valid_enabled' => 'required|boolean',
-            'begin_time' => 'required|date',
-            'end_time' => 'required|date|after:begin_time',
+            'begin_time' => PersonnelRules::begin(),
+            'end_time' => PersonnelRules::end(),
             'added_at' => 'nullable|date',
-            'phone_number' => 'nullable|string|max:32',
+            'phone_number' => PersonnelRules::phone(),
             'access_group_id' => 'required|exists:access_groups,id',
             'door_right' => ['nullable', 'string', 'max:255', 'regex:/^[0-9]+(,[0-9]+)*$/'],
             'doors' => 'nullable|array',
-            'doors.*' => 'integer|between:1,64',
+            'doors.*' => 'integer|distinct|between:1,64',
             'terminal_ids' => 'nullable|array',
-            'terminal_ids.*' => ['integer', Rule::exists('terminals', 'id')->where('integration', Terminal::INTEGRATION_HIKVISION_ISAPI)],
+            'terminal_ids.*' => ['integer', 'distinct', Rule::exists('terminals', 'id')->where('integration', Terminal::INTEGRATION_HIKVISION_ISAPI)],
         ]);
 
         $isFullAdmin = $request->user()?->isFullAdmin() ?? true;
@@ -426,20 +427,20 @@ class PersonnelController extends Controller
     public function update(Request $request, Personnel $personnel): RedirectResponse
     {
         $validated = $request->validate([
-            'employee_no' => ['required', 'string', 'max:32', Rule::unique('personnel')->ignore($personnel->id)],
-            'name' => 'required|string|max:64',
+            'employee_no' => PersonnelRules::employeeNo($personnel->id),
+            'name' => PersonnelRules::name(),
             'user_type' => 'required|in:normal,visitor,blocklist',
             'valid_enabled' => 'required|boolean',
-            'begin_time' => 'required|date',
-            'end_time' => 'required|date|after:begin_time',
+            'begin_time' => PersonnelRules::begin(),
+            'end_time' => PersonnelRules::end(),
             'added_at' => 'nullable|date',
-            'phone_number' => 'nullable|string|max:32',
+            'phone_number' => PersonnelRules::phone(),
             'access_group_id' => 'required|exists:access_groups,id',
             'door_right' => ['nullable', 'string', 'max:255', 'regex:/^[0-9]+(,[0-9]+)*$/'],
             'doors' => 'nullable|array',
-            'doors.*' => 'integer|between:1,64',
+            'doors.*' => 'integer|distinct|between:1,64',
             'terminal_ids' => 'nullable|array',
-            'terminal_ids.*' => ['integer', Rule::exists('terminals', 'id')->where('integration', Terminal::INTEGRATION_HIKVISION_ISAPI)],
+            'terminal_ids.*' => ['integer', 'distinct', Rule::exists('terminals', 'id')->where('integration', Terminal::INTEGRATION_HIKVISION_ISAPI)],
         ]);
 
         $isFullAdmin = $request->user()?->isFullAdmin() ?? true;
@@ -509,7 +510,7 @@ class PersonnelController extends Controller
         $name = $personnel->name;
 
         try {
-            $this->pendingSyncs->remove($personnel);
+            $result = $this->pendingSyncs->remove($personnel);
         } catch (\Throwable $error) {
             return back()->with('error', 'Local record retained. Device removal is not complete: '.$error->getMessage());
         }
@@ -524,7 +525,7 @@ class PersonnelController extends Controller
             subjectLabel: $name,
         );
 
-        return redirect()->route('personnel.index')->with('success', 'Person removed after device confirmation.');
+        return redirect()->route('personnel.index')->with('success', "Person removed locally. {$result['pending']} device removal(s) queued for automatic confirmation. Offline devices may retain access until they reconnect.");
     }
 
     // =========================================================================
@@ -555,7 +556,13 @@ class PersonnelController extends Controller
             foreach ($service->all(pageSize: 30) as $person) {
                 /** @var Person $person */
                 try {
-                    $existing = Personnel::where('employee_no', $person->employeeNo)->first();
+                    $existing = Personnel::withTrashed()->where('employee_no', $person->employeeNo)->first();
+                    if ($existing?->trashed()) {
+                        $existing->terminals()->syncWithoutDetaching([$terminal->id => ['access_allowed' => false, 'sync_status' => 'pending']]);
+                        $this->pendingSyncs->queue($existing, $terminal, 'Removed identity found during import.');
+
+                        continue;
+                    }
 
                     $data = [
                         'name' => $person->name,
@@ -614,7 +621,13 @@ class PersonnelController extends Controller
                 $count = 0;
 
                 foreach ($service->all(pageSize: 30) as $person) {
-                    $existing = Personnel::where('employee_no', $person->employeeNo)->first();
+                    $existing = Personnel::withTrashed()->where('employee_no', $person->employeeNo)->first();
+                    if ($existing?->trashed()) {
+                        $existing->terminals()->syncWithoutDetaching([$terminal->id => ['access_allowed' => false, 'sync_status' => 'pending']]);
+                        $this->pendingSyncs->queue($existing, $terminal, 'Removed identity found during import.');
+
+                        continue;
+                    }
                     $data = [
                         'name' => $person->name,
                         'user_type' => $person->userType->value === 'blocklist' ? 'normal' : $person->userType->value,

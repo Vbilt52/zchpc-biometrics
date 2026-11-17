@@ -48,7 +48,7 @@
                         <button class="btn btn-primary" type="submit"><i class="fa-solid fa-play"></i> Resume onboarding</button>
                     </form>
                     <form method="POST" action="{{ route('access.users.discard', $personnel) }}" style="margin:0;"
-                          onsubmit="return confirm('Discard this draft? A device identity created for enrollment is removed first.')">
+                          onsubmit="return confirm('Discard this draft and queue removal of its device identities? Offline devices will be retried automatically.')">
                         @csrf @method('DELETE')
                         <input type="hidden" name="confirm" value="1">
                         <button class="btn btn-outline" type="submit" style="color:var(--danger);">Discard draft</button>
@@ -336,10 +336,10 @@
                 <details>
                     <summary style="cursor:pointer;font-size:.82rem;font-weight:600;color:#b91c1c;">Delete this person</summary>
                     <p class="hint" style="margin-top:.4rem;">
-                        Every assigned controller must confirm removal before the local record is deleted. If a controller is offline,
-                        deletion is refused and nothing is lost. Audit history is retained.
+                        The profile is removed locally immediately. Device removals are retried automatically. If a controller is offline,
+                        its access may remain until it reconnects and confirms removal. Audit history is retained.
                     </p>
-                    <form method="POST" action="{{ route('access.users.destroy', $personnel) }}" onsubmit="return confirm('Delete this person after controller confirmation? This cannot be undone.')">
+                    <form method="POST" action="{{ route('access.users.destroy', $personnel) }}" onsubmit="return confirm('Remove this person locally and queue deletion on their devices? Offline devices may retain access until they reconnect.')">
                         @csrf @method('DELETE')
                         <div class="form-field">
                             <label class="form-label" for="confirm_employee_no">Type <code>{{ $personnel->employee_no }}</code> to confirm</label>
@@ -347,7 +347,7 @@
                         </div>
                         <label style="display:flex;gap:.5rem;align-items:flex-start;font-size:.8rem;margin-bottom:.5rem;">
                             <input type="checkbox" name="confirm" value="1" required style="margin-top:.15rem;">
-                            I understand access will be revoked and the profile deleted.
+                            I understand offline devices may retain access until removal is confirmed.
                         </label>
                         <button class="btn btn-outline" type="submit" style="color:var(--danger);border-color:var(--danger);">Delete person</button>
                     </form>

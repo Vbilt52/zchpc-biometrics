@@ -30,6 +30,7 @@ class PersonnelDeviceAccessService
     {
         return Cache::lock('person-access:'.$person->id, 600)->block(3, function () use ($person, $attributes, $selected): array {
             $person->refresh();
+            $this->assertNotRemoved($person);
             if (isset($attributes['employee_no']) && $attributes['employee_no'] !== $person->employee_no && $person->terminals()->exists()) {
                 throw ValidationException::withMessages(['employee_no' => 'Employee ID is linked to device fingerprints and history. Keep this ID; edit the name, dates and device access below.']);
             }
@@ -51,6 +52,7 @@ class PersonnelDeviceAccessService
     {
         return Cache::lock('person-access:'.$person->id, 600)->block(3, function () use ($person): array {
             $person->refresh();
+            $this->assertNotRemoved($person);
             foreach ($person->terminals()->get() as $terminal) {
                 if ($terminal->supports('personnel_sync')) {
                     $this->queue($person, $terminal, 'Waiting for device confirmation.');
@@ -61,28 +63,32 @@ class PersonnelDeviceAccessService
         });
     }
 
-    /** Keep the local identity and retry state until physical removal is verified. */
-    public function remove(Personnel $person): void
+    /** Archive locally first; keep identity/history and durable controller removals. */
+    public function remove(Personnel $person): array
     {
-        Cache::lock('person-access:'.$person->id, 600)->block(3, function () use ($person): void {
-            foreach ($person->terminals()->get() as $terminal) {
+        return Cache::lock('person-access:'.$person->id, 600)->block(3, function () use ($person): array {
+            $person->refresh();
+            $terminalIds = $person->terminals()->pluck('terminals.id')
+                ->merge($person->fingerprintEnrollments()->whereNotNull('terminal_id')->pluck('terminal_id'))
+                ->merge($person->doors()->pluck('terminal_id'))
+                ->merge($person->pendingSyncs()->pluck('terminal_id'))->unique();
+            $terminals = Terminal::whereIn('id', $terminalIds)->get();
+            foreach ($terminals as $terminal) {
                 if (! $terminal->supports('personnel_sync')) {
                     throw new \RuntimeException('Remove this person from the unmanaged device before deleting their local record.');
                 }
-                $client = $this->deviceManager->device($terminal->name);
-                if ($this->readPerson($client, $person->employee_no) !== null) {
-                    $client->put('/ISAPI/AccessControl/UserInfo/Delete', ['UserInfoDelCond' => [
-                        'EmployeeNoList' => [['employeeNo' => $person->employee_no]],
-                    ]]);
-                    if ($this->readPerson($client, $person->employee_no) !== null) {
-                        throw new \RuntimeException('Device removal has not been confirmed on '.$terminal->name.'.');
-                    }
-                }
-                // Prevent old pending upserts from recreating a profile already removed.
-                $person->terminals()->updateExistingPivot($terminal->id, ['access_allowed' => false, 'sync_status' => 'confirmed', 'synced_at' => now()]);
-                PendingTerminalSync::where('personnel_id', $person->id)->where('terminal_id', $terminal->id)->delete();
             }
-            $person->delete();
+            DB::transaction(function () use ($person, $terminals): void {
+                $person->update(['valid_enabled' => false, 'status' => Personnel::STATUS_SUSPENDED]);
+                $person->delete();
+                foreach ($terminals as $terminal) {
+                    $person->terminals()->syncWithoutDetaching([$terminal->id => ['access_allowed' => false, 'sync_status' => 'pending']]);
+                    $this->queue($person, $terminal, 'Removal awaiting device confirmation.');
+                }
+            });
+
+            // Hardware is handled by the scheduler so an offline device cannot hold the request open.
+            return ['synced' => 0, 'pending' => $terminals->count()];
         });
     }
 
@@ -99,25 +105,31 @@ class PersonnelDeviceAccessService
         $personnel->terminals()->updateExistingPivot($terminal->id, ['sync_status' => 'pending']);
         PendingTerminalSync::updateOrCreate(
             ['terminal_id' => $terminal->id, 'personnel_id' => $personnel->id],
-            ['operation' => $assignment->pivot->access_allowed ? 'upsert' : 'revoke', 'attempts' => 0,
+            ['operation' => $personnel->trashed() ? 'delete' : ($assignment->pivot->access_allowed ? 'upsert' : 'revoke'), 'attempts' => 0,
                 'last_error' => $error, 'last_attempt_at' => now(), 'next_attempt_at' => now()->addMinute()],
         );
     }
 
     public function processDue(int $limit = 100): array
     {
+        $limit = max(1, min(500, $limit));
+        $deadline = microtime(true) + 45;
         $result = ['synced' => 0, 'pending' => 0];
         $ids = PendingTerminalSync::where('next_attempt_at', '<=', now())->orderBy('next_attempt_at')->limit($limit)->pluck('personnel_id')->unique();
         foreach ($ids as $id) {
+            if (microtime(true) >= $deadline || $limit <= 0) {
+                break;
+            }
             $lock = Cache::lock('person-access:'.$id, 600);
             if (! $lock->get()) {
                 continue;
             }
             try {
-                if ($person = Personnel::find($id)) {
-                    $counts = $this->attemptPerson($person, true);
+                if ($person = Personnel::withTrashed()->find($id)) {
+                    $counts = $this->attemptPerson($person, true, null, $limit);
                     $result['synced'] += $counts['synced'];
                     $result['pending'] += $counts['pending'];
+                    $limit -= $counts['synced'] + $counts['pending'];
                 }
             } finally {
                 $lock->release();
@@ -144,28 +156,41 @@ class PersonnelDeviceAccessService
         });
     }
 
-    private function attemptPerson(Personnel $person, bool $dueOnly = false, ?User $actor = null): array
+    private function attemptPerson(Personnel $person, bool $dueOnly = false, ?User $actor = null, ?int $limit = null): array
     {
         $result = ['synced' => 0, 'pending' => 0];
         $pending = PendingTerminalSync::with('terminal')->where('personnel_id', $person->id)
-            ->when($dueOnly, fn ($query) => $query->where('next_attempt_at', '<=', now()))->get();
+            ->when($dueOnly, fn ($query) => $query->where('next_attempt_at', '<=', now()))
+            ->orderBy('next_attempt_at')->when($limit !== null, fn ($query) => $query->limit($limit))->get();
         foreach ($pending as $sync) {
-            $operation = $sync->operation === 'revoke' ? 'revoke' : 'grant';
+            $operation = $person->trashed() ? 'delete' : ($sync->operation === 'revoke' ? 'revoke' : ($sync->operation === 'profile' ? 'profile' : 'grant'));
             try {
                 if (! $sync->terminal) {
                     throw new \RuntimeException('Terminal no longer exists.');
                 }
-                $this->writeCurrentAssignment($person, $sync->terminal);
-                $person->terminals()->updateExistingPivot($sync->terminal_id, ['sync_status' => 'confirmed', 'synced_at' => now()]);
+                if ($person->trashed()) {
+                    $this->removeFromDevice($person, $sync->terminal);
+                } elseif ($sync->operation === 'delete') {
+                    throw new \RuntimeException('Removal requires an archived local identity.');
+                } elseif ($sync->operation === 'profile') {
+                    $this->writeName($person, $sync->terminal);
+                } else {
+                    $this->writeCurrentAssignment($person, $sync->terminal);
+                }
+                if ($operation !== 'profile') {
+                    $person->terminals()->updateExistingPivot($sync->terminal_id, ['sync_status' => 'confirmed', 'synced_at' => now()]);
+                }
                 $sync->delete();
                 $this->syncLogger()->record($person, $sync->terminal, $operation, DeviceSyncEvent::STATUS_SUCCESS,
                     'Controller confirmed the requested access.', $actor);
                 $result['synced']++;
             } catch (\Throwable $error) {
                 $attempts = $sync->attempts + 1;
-                $sync->update(['attempts' => $attempts, 'last_error' => $error->getMessage(), 'last_attempt_at' => now(),
+                $sync->update(['attempts' => min(65535, $attempts), 'last_error' => $error->getMessage(), 'last_attempt_at' => now(),
                     'next_attempt_at' => now()->addMinutes(min(30, 2 ** min(5, $attempts - 1)))]);
-                $person->terminals()->updateExistingPivot($sync->terminal_id, ['sync_status' => 'pending']);
+                if ($operation !== 'profile') {
+                    $person->terminals()->updateExistingPivot($sync->terminal_id, ['sync_status' => 'pending']);
+                }
                 $this->syncLogger()->record($person, $sync->terminal, $operation, DeviceSyncEvent::STATUS_FAILED,
                     $error->getMessage(), $actor);
                 $result['pending']++;
@@ -186,6 +211,7 @@ class PersonnelDeviceAccessService
 
     private function writeCurrentAssignment(Personnel $personnel, Terminal $terminal): void
     {
+        $this->assertNotRemoved($personnel);
         if (! $terminal->supports('personnel_sync')) {
             throw new \RuntimeException('This terminal does not support personnel synchronization.');
         }
@@ -290,6 +316,42 @@ class PersonnelDeviceAccessService
     private function syncLogger(): DeviceSyncLogger
     {
         return $this->syncLogger ??= app(DeviceSyncLogger::class);
+    }
+
+    private function assertNotRemoved(Personnel $person): void
+    {
+        if ($person->trashed()) {
+            throw ValidationException::withMessages(['personnel' => 'This person has been removed. Device removal is retried automatically.']);
+        }
+    }
+
+    private function removeFromDevice(Personnel $person, Terminal $terminal): void
+    {
+        $client = $this->deviceManager->device($terminal->name);
+        if ($this->readPerson($client, $person->employee_no) === null) {
+            return;
+        }
+        $client->put('/ISAPI/AccessControl/UserInfo/Delete', ['UserInfoDelCond' => [
+            'EmployeeNoList' => [['employeeNo' => $person->employee_no]],
+        ]]);
+        if ($this->readPerson($client, $person->employee_no) !== null) {
+            throw new \RuntimeException('Device removal has not been confirmed on '.$terminal->name.'.');
+        }
+    }
+
+    private function writeName(Personnel $person, Terminal $terminal): void
+    {
+        $client = $this->deviceManager->device($terminal->name);
+        if ($this->readPerson($client, $person->employee_no) === null) {
+            return; // A name correction must never create device access.
+        }
+        $client->put('/ISAPI/AccessControl/UserInfo/Modify', ['UserInfo' => [
+            'employeeNo' => $person->employee_no, 'name' => $person->name,
+        ]]);
+        $actual = $this->readPerson($client, $person->employee_no);
+        if (($actual['name'] ?? null) !== $person->name) {
+            throw new \RuntimeException('Device has not confirmed the updated name.');
+        }
     }
 
     private function readPerson(HikvisionClient $client, string $employeeNo): ?array

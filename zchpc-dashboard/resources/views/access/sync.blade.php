@@ -112,7 +112,11 @@
                 <tr>
                     <td>
                         @if($sync->personnel)
-                            <a href="{{ route('access.users.show', $sync->personnel) }}" style="font-weight:600;color:var(--zchpc-primary);text-decoration:none;">{{ $sync->personnel->name }}</a>
+                            @if($sync->personnel->trashed())
+                                <strong>{{ $sync->personnel->name }}</strong><span class="badge badge-warning">Removed locally</span>
+                            @else
+                                <a href="{{ route('access.users.show', $sync->personnel) }}" style="font-weight:600;color:var(--zchpc-primary);text-decoration:none;">{{ $sync->personnel->name }}</a>
+                            @endif
                             <div class="hint"><code>{{ $sync->personnel->employee_no }}</code></div>
                         @else
                             <span class="hint">Removed person</span>

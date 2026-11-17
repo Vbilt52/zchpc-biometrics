@@ -21,6 +21,7 @@ use App\Services\PersonnelProfileService;
 use Carbon\Carbon;
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -204,7 +205,7 @@ class AccessUserController extends Controller
             $filtersDesc[] = 'Sync: Pending Writes';
         }
 
-        $options = new Options();
+        $options = new Options;
         $options->set('isHtml5ParserEnabled', true);
         $options->set('isRemoteEnabled', false);
         $options->set('defaultFont', 'DejaVu Sans');
@@ -259,7 +260,7 @@ class AccessUserController extends Controller
         ]);
     }
 
-    private function filteredQuery(Request $request): \Illuminate\Database\Eloquent\Builder
+    private function filteredQuery(Request $request): Builder
     {
         $search = trim((string) $request->query('search', ''));
         $department = $request->integer('department');
@@ -589,7 +590,7 @@ class AccessUserController extends Controller
             return back()->with('error', 'Local record retained. '.$error->getMessage());
         }
 
-        return redirect()->route('access.index')->with('success', $personnel->name.' was removed after every controller confirmed deletion.');
+        return redirect()->route('access.index')->with('success', $personnel->name.' was removed locally. Controller removals are retried automatically. Offline devices may retain access until they reconnect.');
     }
 
     public function discardDraft(Request $request, Personnel $personnel): RedirectResponse
@@ -608,7 +609,7 @@ class AccessUserController extends Controller
             $this->wizard->forget();
         }
 
-        return redirect()->route('access.index')->with('success', 'Draft discarded.');
+        return redirect()->route('access.index')->with('success', 'Draft discarded locally. Device removals are queued for automatic confirmation.');
     }
 
     private function ownsEnrollment(Personnel $personnel, FingerprintEnrollment $enrollment): void

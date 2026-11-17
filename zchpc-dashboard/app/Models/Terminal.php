@@ -243,6 +243,11 @@ class Terminal extends Model
         return $this->hasMany(Door::class)->orderBy('door_no');
     }
 
+    public function pendingSyncs(): HasMany
+    {
+        return $this->hasMany(PendingTerminalSync::class);
+    }
+
     public function fingerprintEnrollments(): HasMany
     {
         return $this->hasMany(FingerprintEnrollment::class);

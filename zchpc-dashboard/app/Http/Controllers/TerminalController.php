@@ -99,6 +99,9 @@ class TerminalController extends Controller
 
     public function destroy(Terminal $terminal)
     {
+        if ($terminal->pendingSyncs()->exists()) {
+            return redirect()->route('terminals.index')->with('error', 'This terminal has pending access changes or removals. Confirm them before deleting the terminal.');
+        }
         if (AccessEvent::where('terminal_id', $terminal->id)->exists()
             || AttendanceCheckout::where('terminal_id', $terminal->id)->exists()) {
             return redirect()->route('terminals.index')->with('error', 'This terminal has historical access or attendance records and cannot be deleted.');

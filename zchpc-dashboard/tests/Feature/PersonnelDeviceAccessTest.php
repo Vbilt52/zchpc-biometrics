@@ -102,7 +102,7 @@ class PersonnelDeviceAccessTest extends TestCase
         $this->get(route('personnel.create'))->assertOk()->assertSee('Date added');
     }
 
-    public function test_partial_deletion_keeps_local_record_and_cannot_recreate_removed_device_profile(): void
+    public function test_offline_removal_archives_locally_and_retries_each_device_without_recreating_profiles(): void
     {
         $person = $this->person();
         $entrance = $this->terminal('Entrance');
@@ -119,15 +119,26 @@ class PersonnelDeviceAccessTest extends TestCase
         $manager->shouldReceive('device')->with('Server Room')->andThrow(new \RuntimeException('Terminal offline'));
         $service = new PendingTerminalSyncService($manager);
         $service->queue($person, $entrance, 'Waiting');
-        try {
-            $service->remove($person);
-            $this->fail('Offline device must prevent local deletion.');
-        } catch (\RuntimeException $error) {
-            $this->assertSame('Terminal offline', $error->getMessage());
-        }
-        $this->assertDatabaseHas('personnel', ['id' => $person->id]);
+        $result = $service->remove($person);
+        $this->assertSame(2, $result['pending']);
+        $this->assertSoftDeleted('personnel', ['id' => $person->id]);
+        $this->assertNull(Personnel::find($person->id));
+        $this->assertDatabaseCount('pending_terminal_syncs', 2);
+        PendingTerminalSync::query()->update(['next_attempt_at' => now()->subMinute()]);
+        $result = $service->processDue();
+        $this->assertSame(['synced' => 1, 'pending' => 1], $result);
         $this->assertDatabaseMissing('pending_terminal_syncs', ['personnel_id' => $person->id, 'terminal_id' => $entrance->id]);
+        $this->assertDatabaseHas('pending_terminal_syncs', ['personnel_id' => $person->id, 'terminal_id' => $server->id, 'operation' => 'delete']);
         $this->assertFalse((bool) $person->terminals()->whereKey($entrance->id)->first()->pivot->access_allowed);
+        // Recovery: absence on the previously offline device confirms removal.
+        $recovered = Mockery::mock(HikvisionClient::class);
+        $recovered->shouldReceive('post')->once()->andReturn(['UserInfoSearch' => ['responseStatusStrg' => 'NO MATCH', 'UserInfo' => []]]);
+        $newManager = Mockery::mock(DeviceManager::class);
+        $newManager->shouldReceive('device')->with('Server Room')->once()->andReturn($recovered);
+        PendingTerminalSync::query()->update(['next_attempt_at' => now()->subMinute()]);
+        $this->assertSame(['synced' => 1, 'pending' => 0], (new PendingTerminalSyncService($newManager))->processDue());
+        $this->assertDatabaseCount('pending_terminal_syncs', 0);
+        $this->assertSoftDeleted('personnel', ['id' => $person->id]);
     }
 
     public function test_deletion_is_not_confirmed_when_the_device_retains_the_person(): void
@@ -141,8 +152,12 @@ class PersonnelDeviceAccessTest extends TestCase
         $manager = Mockery::mock(DeviceManager::class);
         $manager->shouldReceive('device')->andReturn($client);
         $this->app->instance(DeviceManager::class, $manager);
-        $this->actingAs(User::factory()->create())->delete(route('personnel.destroy', $person))->assertSessionHas('error');
-        $this->assertDatabaseHas('personnel', ['id' => $person->id]);
+        $this->actingAs(User::factory()->create())->delete(route('personnel.destroy', $person))->assertSessionHas('success');
+        PendingTerminalSync::query()->update(['next_attempt_at' => now()->subMinute()]);
+        $result = $this->app->make(PendingTerminalSyncService::class)->processDue();
+        $this->assertSame(['synced' => 0, 'pending' => 1], $result);
+        $this->assertSoftDeleted('personnel', ['id' => $person->id]);
+        $this->assertDatabaseHas('pending_terminal_syncs', ['operation' => 'delete', 'attempts' => 1]);
     }
 
     public function test_offline_edits_persist_and_later_retry_cannot_restore_a_revoked_assignment(): void

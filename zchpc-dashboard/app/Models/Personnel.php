@@ -7,10 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 
 class Personnel extends Model
 {
+    use SoftDeletes;
+
     public const STATUS_ACTIVE = 'active';
 
     public const STATUS_SUSPENDED = 'suspended';
@@ -350,7 +353,7 @@ class Personnel extends Model
      */
     public function isActive(): bool
     {
-        if ($this->isDraft() || $this->isSuspended()) {
+        if ($this->trashed() || $this->isDraft() || $this->isSuspended()) {
             return false;
         }
 

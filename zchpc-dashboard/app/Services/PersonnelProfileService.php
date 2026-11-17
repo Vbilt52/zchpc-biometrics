@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AccessGroup;
 use App\Models\Personnel;
 use App\Models\User;
+use App\Rules\PersonnelRules;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -28,17 +29,14 @@ class PersonnelProfileService
     public function rules(?Personnel $personnel = null): array
     {
         return [
-            'name' => ['required', 'string', 'max:64'],
-            'employee_no' => [
-                'required', 'string', 'max:32', 'regex:/^[A-Za-z0-9._-]+$/',
-                Rule::unique('personnel', 'employee_no')->ignore($personnel?->id),
-            ],
+            'name' => PersonnelRules::name(),
+            'employee_no' => PersonnelRules::employeeNo($personnel?->id),
             'department' => ['required', 'integer', 'exists:access_groups,id'],
-            'phone_number' => ['nullable', 'string', 'max:32'],
+            'phone_number' => PersonnelRules::phone(),
             'email' => ['nullable', 'email', 'max:120'],
             'user_type' => ['required', Rule::in(['normal', 'visitor'])],
-            'begin_time' => ['required', 'date'],
-            'end_time' => ['required', 'date', 'after:begin_time'],
+            'begin_time' => PersonnelRules::begin(),
+            'end_time' => PersonnelRules::end(),
             'notes' => ['nullable', 'string', 'max:1000'],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.(int) config('access.photos.max_kilobytes', 2048)],
             'confirm_duplicate' => ['nullable', 'boolean'],

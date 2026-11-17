@@ -7,6 +7,8 @@ use App\Models\DeviceAlert;
 use App\Models\DeviceMonitorSettings;
 use App\Models\DeviceRefreshItem;
 use App\Models\DeviceRefreshRun;
+use App\Models\PendingTerminalSync;
+use App\Models\Personnel;
 use App\Models\Terminal;
 use App\Models\User;
 use App\Services\DeviceAlertService;
@@ -120,6 +122,22 @@ class DeviceMonitoringTest extends TestCase
             'serialNumber' => 'DS-0001',
             'firmwareVersion' => 'V3.3.0',
         ];
+    }
+
+    public function test_recovery_makes_pending_writes_due_without_resetting_backoff_on_every_healthy_probe(): void
+    {
+        $terminal = $this->terminal('Recovered Entrance', ['status' => Terminal::STATUS_OFFLINE]);
+        $person = Personnel::create(['employee_no' => '77', 'name' => 'Test Person']);
+        $sync = PendingTerminalSync::create(['terminal_id' => $terminal->id, 'personnel_id' => $person->id,
+            'operation' => 'revoke', 'next_attempt_at' => now()->addMinutes(30)]);
+        $this->fakeReachability();
+        $this->fakeDevices(['Recovered Entrance' => fn () => $this->deviceInfo()]);
+        $this->actingAs($this->admin())->postJson(route('devices.refresh', $terminal))->assertOk();
+        $this->assertTrue($sync->fresh()->next_attempt_at->lte(now()));
+        $future = now()->addMinutes(30)->startOfSecond();
+        $sync->refresh()->update(['next_attempt_at' => $future]);
+        $this->postJson(route('devices.refresh', $terminal))->assertOk();
+        $this->assertSame($future->toDateTimeString(), $sync->fresh()->next_attempt_at->toDateTimeString());
     }
 
     // ------------------------------------------------------------------
