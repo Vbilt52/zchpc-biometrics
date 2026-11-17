@@ -431,21 +431,26 @@ class FingerprintEnrollmentService
             ->values()
             ->all();
 
-        if (in_array($statusText, ['success', 'ok'], true) || in_array($code, [0, 1], true)) {
-            return [true, 'The terminal confirmed it captured a fingerprint.'];
+        // Reader results describe template storage and take precedence over the
+        // request-level acknowledgement. Only reader status 1 means success.
+        $failures = array_values(array_filter($readerCodes, static fn (int $value): bool => $value !== 1));
+        if ($readerCodes !== [] && $failures === []) {
+            return [true, 'The terminal accepted the fingerprint; verifying storage.'];
         }
 
-        foreach ($readerCodes as $readerCode) {
-            if (in_array($readerCode, [1, 5, 8], true)) {
-                return [true, 'The terminal confirmed it captured a fingerprint.'];
-            }
+        if ($readerCodes === [] && ($code === 1 || ($code === -1 && in_array($statusText, ['success', 'ok'], true)))) {
+            return [true, 'The terminal accepted the request; verifying fingerprint storage.'];
         }
 
-        $firstFailure = $readerCodes[0] ?? null;
+        $firstFailure = $failures[0] ?? null;
         $message = match ($firstFailure) {
-            2 => 'The terminal timed out waiting for a finger.',
-            3 => 'The fingerprint could not be matched to a usable template.',
-            4 => 'The fingerprint quality was insufficient; ask the person to place their finger again.',
+            2 => 'The fingerprint module is offline. Check the reader connection and retry.',
+            3 => 'The fingerprint quality was insufficient; ask the person to place their finger again.',
+            4 => 'The terminal fingerprint memory is full. Review its stored enrollments before retrying.',
+            5 => 'The finger was captured, but this fingerprint already exists on the terminal and was not assigned to this person. Use a different finger or review the existing enrollment.',
+            7 => 'The terminal rejected the fingerprint slot. Choose a supported slot and retry.',
+            8 => 'The fingerprint module did not accept configuration. Check that the selected reader supports enrollment.',
+            10 => 'The fingerprint reader firmware does not support this configuration. Review its firmware version.',
             null => 'The terminal rejected the enrollment request.',
             default => 'The terminal reported fingerprint status '.$firstFailure.'.',
         };
