@@ -118,17 +118,22 @@
 
         {{-- Actions --}}
         <div style="display:flex;flex-direction:column;gap:.6rem;">
-            <a href="{{ route('personnel.edit', $personnel) }}" class="btn btn-primary" style="justify-content:center;font-weight:600;">
+            @can('personnel.edit')
+            <a href="{{ route('personnel.edit', ['personnel' => $personnel, 'list' => \App\Support\PersonnelListState::query(request())]) }}" class="btn btn-primary" style="justify-content:center;font-weight:600;">
                 <i class="fa-solid fa-pen"></i> Edit Person & Permissions
             </a>
+            @endcan
+            @can('personnel.deactivate')
             <form action="{{ route('personnel.destroy', $personnel) }}" method="POST"
-                onsubmit="return confirm('Permanently remove {{ addslashes($personnel->name) }} from all terminals and the database?')">
+                onsubmit="return confirm('Archive this person locally and queue removal from assigned devices? History will be retained.')">
                 @csrf @method('DELETE')
+                @include('personnel.list-state')
                 <button type="submit" class="btn btn-outline" style="width:100%;justify-content:center;color:var(--danger);border-color:var(--danger);">
                     <i class="fa-solid fa-trash"></i> Delete Person
                 </button>
             </form>
-            <a href="{{ route('personnel.index') }}" class="btn btn-outline" style="justify-content:center;">
+            @endcan
+            <a href="{{ \App\Support\PersonnelListState::url(request()) }}" class="btn btn-outline" style="justify-content:center;">
                 <i class="fa-solid fa-arrow-left"></i> Back to List
             </a>
         </div>

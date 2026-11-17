@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\DeviceActivityLogger;
 use App\Services\PersonnelDeviceAccessService;
+use App\Support\PersonnelListState;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -33,7 +34,7 @@ class BulkPersonnelDeletionController extends Controller
             return back()->with('error', 'No selected users were deleted. '.$error->getMessage());
         }
 
-        return redirect()->route($legacy ? 'personnel.index' : 'access.index')->with('success',
+        return redirect($legacy ? PersonnelListState::url($request) : route('access.index'))->with('success',
             "{$result['removed']} selected user(s) removed locally. {$result['pending']} device removal(s) queued. Offline devices may retain access until they reconnect and confirm removal.");
     }
 }

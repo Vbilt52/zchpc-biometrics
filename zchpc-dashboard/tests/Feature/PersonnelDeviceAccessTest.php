@@ -85,7 +85,7 @@ class PersonnelDeviceAccessTest extends TestCase
         }
         $this->connect($devices);
         $this->actingAs(User::factory()->create())->put(route('personnel.update', $person), $this->data($person, [$devices[0]->id]))
-            ->assertRedirect(route('personnel.show', $person))->assertSessionHasNoErrors();
+            ->assertRedirect(route('personnel.index'))->assertSessionHasNoErrors();
         $this->assertDatabaseCount('pending_terminal_syncs', 0);
         $this->assertSame(1, $person->terminals()->wherePivot('access_allowed', true)->count());
         $this->assertSame('2026-10-01 06:00:00', $person->fresh()->begin_time->toDateTimeString());
