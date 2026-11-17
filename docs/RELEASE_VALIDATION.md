@@ -17,7 +17,21 @@ Application changes are complete through `10f0abf` on `tavonga`, merged to `main
 
 SSH connectivity was restored after the workstation VPN was switched off. The VM passed the PHP extension and managed-service preflight. Main Entrance, Server Room and UPS Room were online and collecting events. Back Entrance remained unreachable, with its last collection checkpoint on 13 November.
 
-The release helper prepares and checks dependencies before maintenance, takes a consistent SQLite backup, preserves environment configuration and the preceding vendor directory, applies only the additive reporting-index migration, rebuilds caches and checks the live login response. Post-release verification must record the deployed commit, data-preservation comparison, report responses, services and collection state. The final verification record is appended after deployment.
+The release helper prepared and checked dependencies before maintenance, took a consistent SQLite backup, preserved environment configuration and the preceding vendor directory, applied only the additive reporting-index migration, rebuilt caches and checked the live login response.
+
+## Completed deployment verification
+
+Application release `c846727e97f3f3b78e8871e8982f6e4c2c170a97` was deployed successfully. This validation record and a role-comment clarification are a subsequent documentation-only revision; they do not change application behaviour.
+
+- The HTTPS login returned **200**. Thirteen read-only requests through the production application's HTTP kernel returned **200**, covering four dashboards, Personnel page 2, Users & Access page 2, audit, account list/create form, events and PDF/XLSX/DOCX exports. The checks used an existing authorized actor and an in-memory session; no accounts or personnel were created or removed for testing.
+- PDF signatures and native Office archive contents passed. Sample export generation took 26–134 ms in the warm check; this is a small smoke sample, not a load-test or end-to-end browser latency claim.
+- All **1,687** collected events with an exact matching Personnel identity resolved to its current name. **994** differed from the original recorded name and correctly used the Personnel name. Unmatched identifiers remain explicit rather than being guessed.
+- All **150 personnel rows** matched the immediate release backup for internal ID, employee ID, name and archived state. All **8 login accounts** matched for IDs, names, usernames, email, password hashes, roles, optional permissions, active state and required-password-change state. Live records created before the maintenance backup were preserved.
+- SQLite integrity returned **ok**. Both new report indexes are present, and the additive migration completed.
+- Scheduler, queue and PHP-FPM services are **active**. Main Entrance, Server Room and UPS Room had successful collection checkpoints at 21:07:50–21:07:51 Africa/Harare, with successful collection at 21:08:00–21:08:02 on 17 November 2026. Back Entrance remained unreachable and retries remain enabled.
+- The consistent backup is `/home/user/zchpc-backups/release-20261117T190338Z/database.sqlite`. The environment, preceding commit and vendor directory were retained privately with it. This directory is not committed to Git.
+
+The production Composer executable emitted deprecation notices from its own distribution. Dependency installation, platform requirements, optimized autoload generation and the release all completed successfully. Update the host Composer package through normal host maintenance.
 
 ## Assurance limits
 
