@@ -168,7 +168,7 @@ class PersonnelController extends Controller
             $msg .= ' You can now enroll a fingerprint from this page.';
         } elseif ($pending > 0) {
             $msg .= " {$pending} device assignment(s) are pending confirmation — retry synchronization, then enroll a fingerprint.";
-        } elseif ($isFullAdmin) {
+        } elseif ($request->user()->can('access.manage')) {
             $msg .= ' No devices were selected. Use Edit Person to assign devices, then enroll a fingerprint here.';
         } else {
             $msg .= ' Personnel details registered. Physical door access permissions must be authorized by Systems Engineering.';

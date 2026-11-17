@@ -22,6 +22,7 @@ use App\Http\Controllers\PersonnelController;
 use App\Http\Controllers\SuperFingerprintController;
 use App\Http\Controllers\TerminalController;
 use App\Http\Controllers\UserAccountController;
+use App\Http\Middleware\EnsureAccountReady;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function (): void {
@@ -31,7 +32,7 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/setup', [AuthController::class, 'setupStore'])->name('setup.store');
 });
 
-Route::middleware(['auth', 'auth.session'])->group(function (): void {
+Route::middleware(['auth', 'auth.session', EnsureAccountReady::class])->group(function (): void {
     Route::get('/account/password', [AccountController::class, 'edit'])->name('account.password.edit');
     Route::put('/account/password', [AccountController::class, 'update'])->middleware('throttle:6,1')->name('account.password.update');
     Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
@@ -187,13 +188,13 @@ Route::middleware(['auth', 'auth.session'])->group(function (): void {
     Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');
     Route::get('/attendance/export/csv', [AttendanceController::class, 'exportCsv'])->name('attendance.export.csv');
     Route::get('/attendance/export/pdf', [AttendanceController::class, 'exportPdf'])->name('attendance.export.pdf');
-    Route::post('/attendance/{accessEvent}/checkout', [AttendanceController::class, 'checkout'])->name('attendance.checkout');
+    Route::post('/attendance/{accessEvent}/checkout', [AttendanceController::class, 'checkout'])->middleware('can:personnel.edit')->name('attendance.checkout');
 
     // Events / Access Logs / Monitoring
     Route::get('/events', [EventController::class, 'index'])->name('events.index');
     Route::get('/failed-attempts', [EventController::class, 'index'])->name('events.failed');
-    Route::post('/events/import', [EventController::class, 'import'])->name('events.import');
-    Route::post('/events/import-all', [EventController::class, 'importAll'])->name('events.import.all');
+    Route::post('/events/import', [EventController::class, 'import'])->middleware(['can:devices.diagnostics', 'throttle:device-refresh'])->name('events.import');
+    Route::post('/events/import-all', [EventController::class, 'importAll'])->middleware(['can:devices.diagnostics', 'throttle:device-refresh'])->name('events.import.all');
     Route::get('/events/export/pdf', [EventController::class, 'exportPdf'])->name('events.export.pdf');
     Route::get('/events/export/word', [EventController::class, 'exportWord'])->name('events.export.word');
     Route::get('/events/export/excel', [EventController::class, 'exportExcel'])->name('events.export.excel');

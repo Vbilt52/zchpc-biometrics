@@ -70,6 +70,9 @@ class AppServiceProvider extends ServiceProvider
     private function defineRoleHierarchy(): void
     {
         Gate::before(function (User $user, string $ability) {
+            if ($user->is_active === false) {
+                return false;
+            }
             if ($user->isFullAdmin()) {
                 return true;
             }
@@ -103,11 +106,10 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::define('access.enroll', fn (User $user): bool => $user->isFullAdmin());
 
-        Gate::define('access.audit', fn (User $user): bool => 
-            $user->isFullAdmin() || 
-            $user->isAuditOfficer() || 
-            $user->isExecutive() || 
-            $user->isHrOfficer() || 
+        Gate::define('access.audit', fn (User $user): bool => $user->isFullAdmin() ||
+            $user->isAuditOfficer() ||
+            $user->isExecutive() ||
+            $user->isHrOfficer() ||
             $user->hasPermission('access.audit')
         );
 
@@ -141,7 +143,7 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::define('dashboards.audit', fn (User $user): bool => $user->isAuditOfficer());
 
-        Gate::define('reports.executive', fn (User $user): bool => $user->isExecutive() || $user->isAuditOfficer());
+        Gate::define('reports.executive', fn (User $user): bool => $user->hasPermission('reports.executive'));
 
         Gate::define('reports.attendance', fn (User $user): bool => $user->isExecutive() || $user->isHrOfficer() || $user->isAuditOfficer());
     }

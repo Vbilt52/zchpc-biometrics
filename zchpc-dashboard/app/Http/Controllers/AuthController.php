@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\AccessAuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -53,6 +54,8 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
+        app(AccessAuditLogger::class)->log('login_success', 'success', 'Account signed in.', actor: $user, ipAddress: $request->ip(), subjectLabel: $user->name);
+
         // Prompt temporary password recipients to update their credentials
         if ($user->must_change_password) {
             return redirect()->route('account.password.edit')
@@ -77,6 +80,7 @@ class AuthController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
+        app(AccessAuditLogger::class)->log('logout', 'info', 'Account signed out.', actor: $request->user(), ipAddress: $request->ip(), subjectLabel: $request->user()?->name);
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
@@ -104,7 +108,7 @@ class AuthController extends Controller
             'password' => ['required', 'string', 'min:12', 'confirmed'],
         ]);
 
-        $user = User::create($validated);
+        $user = User::create($validated + ['role' => User::ROLE_SUPER_ADMIN, 'is_active' => true]);
         Auth::login($user);
         $request->session()->regenerate();
 

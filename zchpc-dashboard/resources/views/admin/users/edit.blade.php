@@ -170,7 +170,7 @@
             </div>
 
             <div id="edit-manual-pwd" style="display:none;margin-bottom:1rem;">
-                <input type="password" name="password" placeholder="Enter new password (min 8 chars)" style="width:100%;max-width:350px;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:0.5rem;font-size:0.9rem;">
+                <input type="password" name="password" placeholder="Enter new password (min 12 chars)" style="width:100%;max-width:350px;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:0.5rem;font-size:0.9rem;">
             </div>
 
             <div style="margin-bottom:1.25rem;">
