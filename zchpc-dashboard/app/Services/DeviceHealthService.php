@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\FingerprintEnrollment;
+use App\Models\PendingTerminalSync;
 use App\Models\Terminal;
 use App\Models\User;
 use Carbon\Carbon;
@@ -133,6 +134,11 @@ class DeviceHealthService
 
             $terminal->forceFill($attributes)->save();
             $terminal->refresh();
+
+            if ($outcome['ok'] && $previousStatus !== Terminal::STATUS_ONLINE) {
+                PendingTerminalSync::where('terminal_id', $terminal->id)
+                    ->where('next_attempt_at', '>', now())->update(['next_attempt_at' => now()]);
+            }
 
             $this->publishCache($terminal, $outcome['ok'], $outcome['info']);
             $this->alerts->deviceChecked($terminal, $previousStatus, $outcome);

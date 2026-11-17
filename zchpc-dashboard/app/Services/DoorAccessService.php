@@ -189,7 +189,7 @@ class DoorAccessService
         return ['queued' => $queued];
     }
 
-    /** Full deletion: every controller must confirm removal before the row goes. */
+    /** Archive locally and retain durable controller removal requests. */
     public function deleteUser(Personnel $personnel, ?User $actor = null, ?string $ipAddress = null): void
     {
         $name = $personnel->name;
@@ -212,7 +212,7 @@ class DoorAccessService
         $this->deletePhoto($personnel);
 
         $this->audit->log('user_deleted', 'success',
-            'Deletion of '.$name.' confirmed on all assigned controllers and the local record was removed.',
+            'Removed '.$name.' locally; controller removals are queued for confirmation.',
             ['employee_no' => $employeeNo], $actor, null, ipAddress: $ipAddress, subjectLabel: $name);
     }
 
@@ -224,15 +224,7 @@ class DoorAccessService
         }
 
         try {
-            $terminalIds = $personnel->fingerprintEnrollments()->whereNotNull('terminal_id')->pluck('terminal_id')
-                ->merge($personnel->terminals()->pluck('terminals.id'))
-                ->unique();
-
-            foreach (Terminal::query()->whereIn('id', $terminalIds)->get() as $terminal) {
-                $this->provisioner->removeIdentity($terminal, $personnel->employee_no);
-            }
-
-            // Deletes the local row once every remaining pivot is confirmed.
+            // The removal service also includes devices used only for draft enrollment.
             $this->credentials->remove($personnel);
         } catch (\Throwable $error) {
             $this->audit->log('draft_discarded', 'failure',

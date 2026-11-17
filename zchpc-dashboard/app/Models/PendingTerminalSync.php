@@ -29,6 +29,6 @@ class PendingTerminalSync extends Model
 
     public function personnel(): BelongsTo
     {
-        return $this->belongsTo(Personnel::class);
+        return $this->belongsTo(Personnel::class)->withTrashed();
     }
 }
