@@ -312,19 +312,24 @@ function downloadPersonnelPDF() {
                     </td>
                     <td>
                         <div style="display:flex;gap:0.4rem;">
-                            <a href="{{ route('personnel.show', $person) }}" class="btn btn-outline" style="padding:0.35rem 0.7rem;font-size:0.75rem;" title="View">
+                            <a href="{{ route('personnel.show', ['personnel' => $person, 'list' => \App\Support\PersonnelListState::query(request(), true)]) }}" class="btn btn-outline" style="padding:0.35rem 0.7rem;font-size:0.75rem;" title="View">
                                 <i class="fa-solid fa-eye"></i>
                             </a>
-                            <a href="{{ route('personnel.edit', $person) }}" class="btn btn-outline" style="padding:0.35rem 0.7rem;font-size:0.75rem;" title="Edit">
+                            @can('personnel.edit')
+                            <a href="{{ route('personnel.edit', ['personnel' => $person, 'list' => \App\Support\PersonnelListState::query(request(), true)]) }}" class="btn btn-outline" style="padding:0.35rem 0.7rem;font-size:0.75rem;" title="Edit">
                                 <i class="fa-solid fa-pen"></i>
                             </a>
+                            @endcan
+                            @can('personnel.deactivate')
                             <form action="{{ route('personnel.destroy', $person) }}" method="POST" style="display:inline;"
                                 onsubmit="return confirm('Remove {{ addslashes($person->name) }} from all terminals and the local database?')">
                                 @csrf @method('DELETE')
+                                @include('personnel.list-state')
                                 <button type="submit" class="btn btn-outline" style="padding:0.35rem 0.7rem;font-size:0.75rem;color:var(--danger);" title="Delete">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>
                             </form>
+                            @endcan
                         </div>
                     </td>
                 </tr>

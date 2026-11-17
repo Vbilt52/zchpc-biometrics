@@ -8,13 +8,17 @@
     <!-- Add FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Main CSS -->
-    <link rel="stylesheet" href="/css/app.css?v={{ time() }}">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/app-shell.css') }}?v={{ filemtime(public_path('css/app-shell.css')) }}">
     @stack('styles')
 </head>
 <body>
+    <a class="skip-link" href="#page-content">Skip to content</a>
+    <button class="nav-backdrop" type="button" aria-label="Close navigation" hidden></button>
     <div class="app-container">
         <!-- Sidebar Navigation -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="app-navigation" aria-label="Main navigation">
+            <button type="button" class="nav-close btn" aria-label="Close navigation">Close menu <span aria-hidden="true">×</span></button>
             <div class="sidebar-building-header">
                 <img src="{{ asset('images/zchpc-building.png') }}" alt="ZCHPC Logo" class="sidebar-building-img">
             </div>
@@ -243,7 +247,7 @@
         <main class="main-content">
             <header class="top-header">
                 <div class="top-header-left">
-                    <button class="sidebar-toggle-btn" type="button" aria-label="Toggle navigation">
+                    <button class="sidebar-toggle-btn" type="button" aria-label="Toggle navigation" aria-controls="app-navigation" aria-expanded="true">
                         <i class="fa-solid fa-bars"></i>
                     </button>
                 </div>
@@ -262,7 +266,7 @@
 
             </header>
 
-            <div class="content-wrapper">
+            <div class="content-wrapper" id="page-content" tabindex="-1">
                 @hasSection('header')
                     @if(!request()->is('/'))
                         <div class="subpage-header">
@@ -274,6 +278,7 @@
             </div>
         </main>
     </div>
+    <script src="{{ asset('js/app-shell.js') }}?v={{ filemtime(public_path('js/app-shell.js')) }}" defer></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const searchInput = document.getElementById('header-search-input');

@@ -10,6 +10,7 @@ use App\Rules\PersonnelRules;
 use App\Services\AccessAuditLogger;
 use App\Services\DeviceActivityLogger;
 use App\Services\PendingTerminalSyncService;
+use App\Support\PersonnelListState;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -42,7 +43,7 @@ class PersonnelController extends Controller
     // LISTING
     // =========================================================================
 
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
         $query = Personnel::with(['terminals', 'accessGroup']);
         if ($terminalId = $request->integer('terminal_id')) {
@@ -69,6 +70,9 @@ class PersonnelController extends Controller
         $query->orderByRaw('CAST(employee_no AS INTEGER) ASC')->orderBy('employee_no', 'ASC');
 
         $personnel = $query->paginate(20)->withQueryString();
+        if ($personnel->currentPage() > $personnel->lastPage()) {
+            return redirect()->route('personnel.index', array_replace(PersonnelListState::query($request, true), ['page' => $personnel->lastPage()]));
+        }
         $terminals = Terminal::apiManaged()->orderBy('phase')->get();
         $accessGroups = AccessGroup::orderBy('name')->get();
         $noTerminals = $terminals->isEmpty();
@@ -107,8 +111,7 @@ class PersonnelController extends Controller
             'terminal_ids.*' => ['integer', 'distinct', Rule::exists('terminals', 'id')->where('integration', Terminal::INTEGRATION_HIKVISION_ISAPI)],
         ]);
 
-        $isFullAdmin = $request->user()?->isFullAdmin() ?? true;
-        if (! $isFullAdmin && $request->user()?->isHrOfficer()) {
+        if (! $request->user()->can('access.manage')) {
             // HR Officer creates the personnel record without physical door permissions
             $doorRight = null;
             $rightPlan = null;
@@ -443,8 +446,7 @@ class PersonnelController extends Controller
             'terminal_ids.*' => ['integer', 'distinct', Rule::exists('terminals', 'id')->where('integration', Terminal::INTEGRATION_HIKVISION_ISAPI)],
         ]);
 
-        $isFullAdmin = $request->user()?->isFullAdmin() ?? true;
-        if (! $isFullAdmin && $request->user()?->isHrOfficer()) {
+        if (! $request->user()->can('access.manage')) {
             // HR Officer preserves existing terminal and door permissions
             $doorRight = $personnel->door_right;
             $rightPlan = $personnel->right_plan;
@@ -497,14 +499,14 @@ class PersonnelController extends Controller
             $msg = "Person saved. {$pending} device update(s) are pending confirmation — retry synchronization, then enroll a fingerprint.";
         }
 
-        return redirect()->route('personnel.show', $personnel)->with('success', $msg);
+        return redirect(PersonnelListState::url($request))->with('success', $msg);
     }
 
     // =========================================================================
     // DELETE
     // =========================================================================
 
-    public function destroy(Personnel $personnel): RedirectResponse
+    public function destroy(Request $request, Personnel $personnel): RedirectResponse
     {
         $employeeNo = $personnel->employee_no;
         $name = $personnel->name;
@@ -525,7 +527,7 @@ class PersonnelController extends Controller
             subjectLabel: $name,
         );
 
-        return redirect()->route('personnel.index')->with('success', "Person removed locally. {$result['pending']} device removal(s) queued for automatic confirmation. Offline devices may retain access until they reconnect.");
+        return redirect(PersonnelListState::url($request))->with('success', "Person removed locally. {$result['pending']} device removal(s) queued for automatic confirmation. Offline devices may retain access until they reconnect.");
     }
 
     // =========================================================================

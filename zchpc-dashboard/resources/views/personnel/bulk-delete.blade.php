@@ -9,6 +9,9 @@
       style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;padding:.85rem 1.25rem;border-bottom:1px solid var(--zchpc-border);">
     @csrf
     @method('DELETE')
+    @if($bulkDeleteRoute === 'personnel.bulk-destroy')
+        @include('personnel.list-state')
+    @endif
     <input type="hidden" name="confirm" value="0">
     <span data-selection-count role="status" aria-live="polite" style="font-weight:600;">0 users selected</span>
     <button type="button" class="btn btn-outline" data-clear-selection disabled>Clear selection</button>
