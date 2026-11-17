@@ -214,10 +214,14 @@ function downloadPersonnelPDF() {
             <p style="font-size:.85rem;">Assigned to {{ $terminals->firstWhere('id', (int) request('terminal_id'))?->name ?? 'selected device' }} · <a href="{{ route('personnel.index') }}">Show all people</a></p>
         @endif
     </div>
+    @can('personnel.deactivate')
+        @include('personnel.bulk-delete', ['bulkDeleteRoute' => 'personnel.bulk-destroy'])
+    @endcan
     <div class="table-wrapper">
         <table>
             <thead>
                 <tr>
+                    @can('personnel.deactivate') @include('personnel.select-page') @endcan
                     <th>ID / Employee No.</th>
                     <th>Full Name</th>
                     <th>Role</th>
@@ -231,6 +235,7 @@ function downloadPersonnelPDF() {
             <tbody>
                 @forelse($personnel as $person)
                 <tr>
+                    @can('personnel.deactivate') @include('personnel.selection-checkbox') @endcan
                     <td style="font-family:monospace;font-weight:600;color:var(--zchpc-primary);">
                         {{ $person->employee_no }}
                     </td>
@@ -325,7 +330,7 @@ function downloadPersonnelPDF() {
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="8" style="text-align:center;padding:3.5rem;color:var(--zchpc-text-muted);">
+                    <td colspan="{{ auth()->user()->can('personnel.deactivate') ? 9 : 8 }}" style="text-align:center;padding:3.5rem;color:var(--zchpc-text-muted);">
                         <i class="fa-solid fa-users" style="font-size:2.5rem;display:block;margin-bottom:1rem;opacity:0.2;"></i>
                         <div style="font-size:1rem;font-weight:500;margin-bottom:0.5rem;">No personnel records yet</div>
                         <div style="font-size:0.875rem;">Use <strong>Import from Device</strong> to pull existing users, or <strong>Add Person</strong> to create a new one.</div>
