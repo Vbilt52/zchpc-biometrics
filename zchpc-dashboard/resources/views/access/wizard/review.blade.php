@@ -19,7 +19,7 @@
         <div style="border:1px solid var(--zchpc-border);border-radius:var(--radius-md);padding:.9rem 1rem;">
             <div class="hint" style="text-transform:uppercase;letter-spacing:.05em;font-size:.68rem;">Person</div>
             <div style="font-weight:700;font-size:1.05rem;margin-top:.2rem;">{{ $personnel->name }}</div>
-            <div class="hint"><code>{{ $personnel->employee_no }}</code></div>
+            <div class="hint"><code>{{ $personnel->employee_id }}</code></div>
             <div class="hint">{{ $personnel->accessGroup?->name ?? $personnel->department }}</div>
             <div class="hint">
                 {{ $personnel->begin_time?->timezone(config('attendance.timezone'))->format('d M Y H:i') }}

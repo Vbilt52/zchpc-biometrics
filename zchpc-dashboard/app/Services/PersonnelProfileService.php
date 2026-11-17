@@ -32,6 +32,7 @@ class PersonnelProfileService
             'name' => PersonnelRules::name(),
             'employee_no' => PersonnelRules::employeeNo($personnel?->id),
             'department' => ['required', 'integer', 'exists:access_groups,id'],
+            'job_title' => ['nullable', 'string', 'max:120', 'not_regex:/[<>\x00-\x1F]/'],
             'phone_number' => PersonnelRules::phone(),
             'email' => ['nullable', 'email', 'max:120'],
             'user_type' => ['required', Rule::in(['normal', 'visitor'])],
@@ -75,7 +76,7 @@ class PersonnelProfileService
                 }
             })
             ->limit(5)
-            ->get(['id', 'name', 'employee_no', 'department']);
+            ->get(['id', 'name', 'employee_no', 'personnel_code', 'department']);
     }
 
     public function createDraft(array $data, ?UploadedFile $photo, ?User $actor = null, ?string $ipAddress = null): Personnel
@@ -90,6 +91,7 @@ class PersonnelProfileService
             'valid_enabled' => true,
             'begin_time' => Carbon::parse($data['begin_time'], $zone)->utc(),
             'end_time' => Carbon::parse($data['end_time'], $zone)->utc(),
+            'job_title' => $data['job_title'] ?? null,
             'phone_number' => $data['phone_number'] ?? null,
             'email' => $data['email'] ?? null,
             'notes' => $data['notes'] ?? null,
@@ -131,6 +133,7 @@ class PersonnelProfileService
             'user_type' => $data['user_type'],
             'begin_time' => Carbon::parse($data['begin_time'], $zone)->utc(),
             'end_time' => Carbon::parse($data['end_time'], $zone)->utc(),
+            'job_title' => $data['job_title'] ?? null,
             'phone_number' => $data['phone_number'] ?? null,
             'email' => $data['email'] ?? null,
             'notes' => $data['notes'] ?? null,

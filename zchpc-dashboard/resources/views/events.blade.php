@@ -82,7 +82,7 @@
                 <select name="personnel_id" style="width:100%;padding:.6rem .7rem;border:1px solid var(--zchpc-border);border-radius:var(--radius-md);">
                     <option value="">All people</option>
                     @foreach($personnel as $person)
-                        <option value="{{ $person->id }}" @selected($filters['personnel_id'] === $person->id)>{{ $person->name }} ({{ $person->employee_no }})</option>
+                        <option value="{{ $person->id }}" @selected($filters['personnel_id'] === $person->id)>{{ $person->name }} ({{ $person->employee_id }})</option>
                     @endforeach
                 </select>
             </div>
@@ -162,7 +162,7 @@
                                 <i class="fa-solid fa-door-closed" style="margin-right:4px;font-size:.75rem;"></i>{{ $doorDisplay }}
                             </span>
                         </td>
-                        <td><div style="font-weight:600;font-size:.88rem;">{{ $event->displayName() }}</div><div style="font-family:monospace;font-size:.76rem;color:var(--zchpc-text-muted);">{{ $event->employee_no ? 'ID: '.$event->employee_no : 'No employee ID' }}</div></td>
+                        <td><div style="font-weight:600;font-size:.88rem;">{{ $event->displayName() }}</div><div style="font-family:monospace;font-size:.76rem;color:var(--zchpc-text-muted);">{{ ($event->personnel?->employee_id ?? $event->employee_no) ? 'ID: '.($event->personnel?->employee_id ?? $event->employee_no) : 'No employee ID' }}</div></td>
                         <td><span style="font-size:.82rem;padding:.25rem .55rem;border-radius:var(--radius-md);background:rgba(0,74,134,.07);color:var(--zchpc-primary);">{{ $event->methodLabel() }}</span></td>
                         <td><span class="badge {{ $outcomeClass }}">{{ $outcome }}</span></td>
                         <td>{{ $event->directionLabel() }}</td>

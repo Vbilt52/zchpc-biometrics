@@ -11,7 +11,7 @@
         <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:flex-start;margin-bottom:1rem;">
             <div>
                 <h2 style="margin:0;">{{ $personnel->name }}</h2>
-                <p class="hint" style="margin-top:.25rem;"><code>{{ $personnel->employee_no }}</code> · {{ $personnel->accessGroup?->name ?? $personnel->department }}</p>
+                <p class="hint" style="margin-top:.25rem;"><code>{{ $personnel->employee_id }}</code> · {{ $personnel->accessGroup?->name ?? $personnel->department }}</p>
             </div>
             <a href="{{ route('access.users.show', $personnel) }}" class="btn btn-outline">Back to profile</a>
         </div>

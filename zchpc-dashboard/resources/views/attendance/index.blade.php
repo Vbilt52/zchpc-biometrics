@@ -94,7 +94,7 @@
             @forelse($entries as $row)
                 <tr>
                     <td class="attendance-time">{{ \Carbon\CarbonImmutable::parse($row['date'])->format('d M Y') }}</td>
-                    <td><strong>{{ $row['owner'] }}</strong><span class="attendance-subtext">Employee ID: {{ $row['employee_no'] }}</span><span class="attendance-subtext">{{ $row['department'] ?? 'No department recorded' }}</span></td>
+                    <td><strong>{{ $row['owner'] }}</strong><span class="attendance-subtext">Employee ID: {{ $row['employee_id'] ?? $row['employee_no'] }}</span><span class="attendance-subtext">{{ $row['department'] ?? 'No department recorded' }}</span></td>
                     <td>{{ $row['terminal_name'] }}</td>
                     <td class="attendance-time"><strong>{{ $row['first_in']->format('H:i:s') }}</strong><span class="attendance-subtext">Fingerprint</span></td>
                     <td class="attendance-time">

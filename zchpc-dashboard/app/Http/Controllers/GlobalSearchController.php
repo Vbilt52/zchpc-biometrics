@@ -27,15 +27,15 @@ class GlobalSearchController extends Controller
 
         $personnel = Personnel::query()
             ->where('name', 'like', $term)
-            ->orWhere('employee_no', 'like', $term)
+            ->orWhere('employee_no', 'like', $term)->orWhere('personnel_code', 'like', $term)
             ->orWhere('department', 'like', $term)
             ->orWhere('phone_number', 'like', $term)
             ->limit(5)
-            ->get(['id', 'name', 'employee_no', 'department', 'status'])
+            ->get(['id', 'name', 'employee_no', 'personnel_code', 'department', 'status'])
             ->map(fn ($p) => [
                 'id' => $p->id,
                 'title' => $p->name,
-                'subtitle' => 'ID: '.$p->employee_no.($p->department ? ' · '.$p->department : ''),
+                'subtitle' => 'ID: '.$p->employee_id.($p->department ? ' · '.$p->department : ''),
                 'url' => route('access.users.show', $p->id),
                 'icon' => 'fa-solid fa-user',
                 'badge' => ucfirst($p->status ?? 'active'),

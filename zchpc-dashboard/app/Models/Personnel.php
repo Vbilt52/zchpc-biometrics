@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\PersonnelNumbering;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,6 +30,7 @@ class Personnel extends Model
 
     protected $fillable = [
         'employee_no',
+        'job_title',
         'name',
         'user_type',
         'valid_enabled',
@@ -53,6 +55,23 @@ class Personnel extends Model
         'right_plan' => 'array',
         'added_at' => 'datetime',
     ];
+
+    protected function performInsert(Builder $query)
+    {
+        return $this->getConnection()->transaction(function () use ($query) {
+            $this->personnel_code = PersonnelNumbering::allocate();
+            if ($this->employee_no === '__AUTO__') {
+                $this->employee_no = $this->personnel_code;
+            }
+
+            return parent::performInsert($query);
+        }, 5);
+    }
+
+    public function getEmployeeIdAttribute(): string
+    {
+        return $this->personnel_code ?: $this->employee_no;
+    }
 
     /**
      * Terminals this person has been synced to.

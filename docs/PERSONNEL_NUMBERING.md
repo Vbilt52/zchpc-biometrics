@@ -1,0 +1,15 @@
+# Personnel numbering release — 17 November 2026
+
+Personnel now have a unique public Employee ID (HPC001 onwards). The migration assigns these in ascending internal record order, including archived records, and reserves all numbers permanently. Existing controller employee numbers remain internal because device fingerprints, imported events and pending access writes use those identifiers. No controller identity is deleted, recreated or reassigned by this migration.
+
+New-person forms show the next available number. The server allocates the actual number inside the personnel insertion transaction, so two forms opened at the same time cannot allocate the same ID. The displayed preview may advance if another operator saves first. New identities use their assigned HPC number on controllers too. Existing identities continue using their preserved controller identifier.
+
+The optional Job title field is available in both personnel workflows, accepts at most 120 characters and is displayed on the person’s details. Existing titles start blank; no values are guessed. All existing personnel start dates are set to 1 January 2026 at midnight Africa/Harare (stored as 2025-12-31 22:00 UTC). Names, account credentials, expiry dates, permissions, fingerprint ownership and original event payloads remain unchanged. The date is the application’s configured access-start date, used by subsequent normal synchronization; this migration does not issue physical device writes.
+
+Lists, enrollment screens, searches and exports display HPC IDs. Internal historical event IDs remain unchanged and resolve to the same person. Archived identities keep their assigned HPC numbers. A database uniqueness constraint and a transactional sequence protect new allocations; a failed insert rolls its allocation back.
+
+Fingerprint capture respects configured HTTP/HTTPS and certificate verification settings. Success requires reading the stored fingerprint slot back from the device. A reachable device alone cannot prove capture: no-finger, poor-quality or unsupported-device outcomes remain truthful. The onboarding workflow offers Continue without fingerprint, which records deferral and permits the remaining setup steps.
+
+Validation: 150 application tests and 954 assertions passed. After the final search/order adjustment, 13 focused numbering, pagination and bulk-removal tests passed with 102 assertions; Blade views compiled. The numbering migration was rehearsed on the existing 149-record local database copy. All other personnel fields, login accounts, door grants and fingerprint records matched the before-copy; SQLite integrity passed. The production comparison is recorded in the deployment evidence outside Git.
+
+The deployment takes a consistent production backup before migration. This data migration intentionally refuses an automatic down operation: dropping assigned numbers or reversing start dates requires a reviewed backup and recovery decision. Code rollback leaves the added schema and assigned numbers intact. Do not restore a database blindly after live users resume work.

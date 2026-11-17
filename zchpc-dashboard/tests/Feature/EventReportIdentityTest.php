@@ -36,7 +36,7 @@ class EventReportIdentityTest extends TestCase
                 $this->assertTrue($zip->open($path));
                 $xml = $zip->getFromName($part);
                 $this->assertStringContainsString('Correct &amp; Full Name', $xml);
-                $this->assertStringContainsString('0007', $xml);
+                $this->assertStringContainsString($person->employee_id, $xml);
                 $this->assertStringContainsString('Reception Entry', $xml);
                 $this->assertStringNotContainsString('Old Device Name', $xml);
                 $zip->close();

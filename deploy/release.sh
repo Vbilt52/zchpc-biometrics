@@ -43,7 +43,7 @@ finish() {
         run php artisan up
         systemctl restart zchpc-scheduler zchpc-queue
         systemctl reload php8.3-fpm
-        echo 'Previous code restored. Additive report indexes and live data were preserved.' >&2
+        echo 'Previous code restored. Database changes were preserved; review the release backup before any data recovery.' >&2
     fi
     exit "$result"
 }

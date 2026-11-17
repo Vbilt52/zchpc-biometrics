@@ -28,7 +28,7 @@
             <ul style="margin:0 0 .5rem 1rem;padding:0;">
                 @foreach($duplicate_matches as $match)
                     <li>
-                        <strong>{{ $match->name }}</strong> · {{ $match->employee_no }}
+                        <strong>{{ $match->name }}</strong> · {{ $match->employee_id }}
                         <span style="color:var(--zchpc-text-muted);">· {{ $match->department }}</span>
                     </li>
                 @endforeach

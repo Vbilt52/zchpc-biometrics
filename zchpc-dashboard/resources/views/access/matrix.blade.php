@@ -123,7 +123,7 @@
                     <tr>
                         <td>
                             <a href="{{ route('access.users.show', $person) }}" style="font-weight:600;color:var(--zchpc-primary);text-decoration:none;">{{ $person->name }}</a>
-                            <div class="hint"><code>{{ $person->employee_no }}</code></div>
+                            <div class="hint"><code>{{ $person->employee_id }}</code></div>
                         </td>
                         <td class="hint">{{ $person->accessGroup?->name ?? $person->department ?? '—' }}</td>
                         <td>
