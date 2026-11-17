@@ -196,4 +196,5 @@ Route::middleware(['auth', 'auth.session'])->group(function (): void {
     Route::post('/events/import-all', [EventController::class, 'importAll'])->name('events.import.all');
     Route::get('/events/export/pdf', [EventController::class, 'exportPdf'])->name('events.export.pdf');
     Route::get('/events/export/word', [EventController::class, 'exportWord'])->name('events.export.word');
+    Route::get('/events/export/excel', [EventController::class, 'exportExcel'])->name('events.export.excel');
 });

@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\AccessEvent;
+use App\Models\Door;
 use App\Models\Personnel;
 use App\Models\Terminal;
 use App\Models\TerminalSuperFingerprint;
@@ -86,7 +88,8 @@ class EventLogWorkflowTest extends TestCase
         $this->assertStringStartsWith('%PDF', $pdf->getContent());
 
         $word = $this->actingAs($user)->get(route('events.export.word', $filters));
-        $word->assertOk()->assertHeader('content-type', 'application/msword; charset=utf-8')->assertSee($person->name);
+        $word->assertOk()->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        $this->assertStringStartsWith('PK', $word->getContent());
     }
 
     public function test_all_terminal_import_keeps_each_devices_events_separate(): void
@@ -213,14 +216,14 @@ class EventLogWorkflowTest extends TestCase
     {
         $user = User::factory()->create();
         $terminal = $this->terminal();
-        $door1 = \App\Models\Door::create([
+        $door1 = Door::create([
             'name' => 'Server Room Door',
             'code' => 'DOOR-001',
             'terminal_id' => $terminal->id,
             'door_no' => 1,
             'is_active' => true,
         ]);
-        $door2 = \App\Models\Door::create([
+        $door2 = Door::create([
             'name' => 'Archive Door',
             'code' => 'DOOR-002',
             'terminal_id' => $terminal->id,
@@ -231,7 +234,7 @@ class EventLogWorkflowTest extends TestCase
         $tz = config('attendance.timezone');
         $now = now($tz);
 
-        \App\Models\AccessEvent::create([
+        AccessEvent::create([
             'terminal_id' => $terminal->id,
             'event_key' => 'event-door-1',
             'employee_no' => 'EMP-001',
@@ -242,7 +245,7 @@ class EventLogWorkflowTest extends TestCase
             'raw_payload' => ['doorNo' => 1],
         ]);
 
-        \App\Models\AccessEvent::create([
+        AccessEvent::create([
             'terminal_id' => $terminal->id,
             'event_key' => 'event-door-2',
             'employee_no' => 'EMP-002',

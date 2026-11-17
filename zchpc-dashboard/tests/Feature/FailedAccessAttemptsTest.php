@@ -26,7 +26,19 @@ class FailedAccessAttemptsTest extends TestCase
         $this->actingAs(User::factory()->create())->get(route('events.failed', $query))->assertOk()
             ->assertSee('Unknown person')->assertSee('Server Room')->assertSee('29 Oct 2026 08:15:00')
             ->assertDontSee('Prince Granted')->assertDontSee('System alarm')->assertSee('1 matching record(s)');
-        $this->get(route('events.export.word', $query + ['outcome' => 'denied']))->assertOk()->assertSee('Server Room')->assertDontSee('Prince Granted');
+        $word = $this->get(route('events.export.word', $query + ['outcome' => 'denied']))->assertOk();
+        $path = tempnam(sys_get_temp_dir(), 'denied-report-');
+        try {
+            file_put_contents($path, $word->getContent());
+            $zip = new \ZipArchive;
+            $this->assertTrue($zip->open($path));
+            $xml = $zip->getFromName('word/document.xml');
+            $this->assertStringContainsString('Server Room', $xml);
+            $this->assertStringNotContainsString('Prince Granted', $xml);
+            $zip->close();
+        } finally {
+            unlink($path);
+        }
         $this->assertSame(1, AccessEvent::failedAttempt()->count());
     }
 }

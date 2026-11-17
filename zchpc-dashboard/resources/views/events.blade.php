@@ -32,6 +32,11 @@
 
 @include('events.sync-status')
 
+@if($errors->any())
+<div class="alert alert-danger" role="alert">{{ $errors->first() }}</div>
+@endif
+<p>Names are matched by exact employee ID to the current Personnel record, including archived personnel. Device names are used only when no matching record exists. A granted event confirms authentication; physical entry direction is shown only when the device reports it.</p>
+
 @if($filters['outcome'] === 'denied')
 <p style="padding:1rem;background:#fff7ed;margin-bottom:1rem;">Failed attempts show the terminal and recorded time even when no person is identified. Names are shown only when supplied by the event or linked employee ID. Only attempts recorded and collected from the device can appear here.</p>
 @endif
@@ -49,6 +54,7 @@
                 <select id="event-outcome" name="outcome" style="width:100%;padding:.6rem;border:1px solid var(--zchpc-border);border-radius:.5rem;">
                     <option value="all" @selected($filters['outcome'] === 'all')>All events</option>
                     <option value="denied" @selected($filters['outcome'] === 'denied')>Failed attempts only</option>
+                    <option value="granted" @selected($filters['outcome'] === 'granted')>Granted access only</option>
                 </select>
             </div>
             <div>
@@ -121,6 +127,7 @@
             </form>
             <span class="log-action-note">Imports every person for the selected date range. Terminals that cannot be reached are reported separately, without stopping the others.</span>
             <div class="log-exports">
+                <a href="{{ route('events.export.excel', request()->query()) }}" class="btn btn-outline"><i class="fa-solid fa-file-excel"></i> Excel</a>
                 <a href="{{ route('events.export.pdf', request()->query()) }}" class="btn btn-outline" style="color:#b91c1c;border-color:#b91c1c;"><i class="fa-solid fa-file-pdf"></i> PDF</a>
                 <a href="{{ route('events.export.word', request()->query()) }}" class="btn btn-outline"><i class="fa-solid fa-file-word"></i> Document</a>
             </div>
@@ -135,7 +142,7 @@
     </div>
     <div class="table-wrapper">
         <table>
-            <thead><tr><th>Time</th><th>Terminal</th><th>Door</th><th>Person / Employee ID</th><th>Method</th><th>Result</th></tr></thead>
+            <thead><tr><th>Time</th><th>Terminal</th><th>Entrance</th><th>Person / Employee ID</th><th>Method</th><th>Result</th><th>Direction</th></tr></thead>
             <tbody>
                 @forelse($events as $event)
                     @php
@@ -153,9 +160,10 @@
                                 <i class="fa-solid fa-door-closed" style="margin-right:4px;font-size:.75rem;"></i>{{ $doorDisplay }}
                             </span>
                         </td>
-                        <td><div style="font-weight:600;font-size:.88rem;">{{ $event->person_name ?: ($event->personnel?->name ?: 'Unknown person') }}</div><div style="font-family:monospace;font-size:.76rem;color:var(--zchpc-text-muted);">{{ $event->employee_no ? 'ID: '.$event->employee_no : 'No employee ID' }}</div></td>
+                        <td><div style="font-weight:600;font-size:.88rem;">{{ $event->displayName() }}</div><div style="font-family:monospace;font-size:.76rem;color:var(--zchpc-text-muted);">{{ $event->employee_no ? 'ID: '.$event->employee_no : 'No employee ID' }}</div></td>
                         <td><span style="font-size:.82rem;padding:.25rem .55rem;border-radius:var(--radius-md);background:rgba(0,74,134,.07);color:var(--zchpc-primary);">{{ $event->methodLabel() }}</span></td>
                         <td><span class="badge {{ $outcomeClass }}">{{ $outcome }}</span></td>
+                        <td>{{ $event->directionLabel() }}</td>
                     </tr>
                 @empty
                     <tr><td colspan="6" style="text-align:center;padding:3rem;color:var(--zchpc-text-muted);"><i class="fa-solid fa-clock-rotate-left" style="font-size:2rem;opacity:.3;display:block;margin-bottom:.75rem;"></i>No imported records match the selected filters. Choose one terminal and import its logs first.</td></tr>

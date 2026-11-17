@@ -8,6 +8,7 @@ use App\Models\Personnel;
 use App\Models\Terminal;
 use App\Models\TerminalEventSync;
 use App\Services\EventImportService;
+use App\Services\TabularReportExporter;
 use Carbon\Carbon;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -34,7 +35,7 @@ class EventController extends Controller
         $filters = $this->filters($request);
 
         $events = $this->filteredEvents($filters)
-            ->with(['terminal', 'personnel'])
+            ->with(['terminal.doors', 'personnel'])
             ->orderByDesc('occurred_at')
             ->orderByDesc('id')
             ->paginate(100)
@@ -43,7 +44,7 @@ class EventController extends Controller
         $terminals = Terminal::orderBy('phase')->orderBy('name')->get();
         $doors = Door::with('terminal')->orderBy('name')->get();
         $doorsByTerminalDoor = $doors->keyBy(fn ($d) => $d->terminal_id.'_'.$d->door_no);
-        $personnel = Personnel::orderBy('name')->get(['id', 'employee_no', 'name']);
+        $personnel = Personnel::withTrashed()->orderBy('name')->get(['id', 'employee_no', 'name']);
         $syncStates = TerminalEventSync::all()->keyBy('terminal_id');
 
         return view('events', compact('events', 'terminals', 'doors', 'doorsByTerminalDoor', 'personnel', 'filters', 'syncStates'));
@@ -163,24 +164,30 @@ class EventController extends Controller
         ]);
     }
 
-    /**
-     * Word opens a standards-compliant HTML document natively. This avoids a
-     * proprietary client dependency while producing an editable document.
-     */
     public function exportWord(Request $request): Response
     {
-        $filters = $this->filters($request);
-        $html = view('events.report', [
-            'events' => $this->reportEvents($filters),
-            'filters' => $filters,
-            'format' => 'word',
-        ])->render();
+        return $this->officeExport($request, 'docx');
+    }
 
-        return response($html, 200, [
-            'Content-Type' => 'application/msword; charset=utf-8',
-            'Content-Disposition' => 'attachment; filename="zchpc-access-event-log.doc"',
-            'Cache-Control' => 'max-age=0',
+    public function exportExcel(Request $request): Response
+    {
+        return $this->officeExport($request, 'xlsx');
+    }
+
+    private function officeExport(Request $request, string $format): Response
+    {
+        $filters = $this->filters($request);
+        $rows = $this->reportEvents($filters)->map(fn (AccessEvent $event) => [
+            $event->occurred_at?->timezone(config('attendance.timezone'))->format('Y-m-d H:i:s') ?? 'Unknown',
+            $event->terminal?->name ?? 'Removed terminal', $event->entranceLabel(),
+            $event->displayName(), $event->employee_no ?? '', $event->methodLabel(),
+            $event->outcomeLabel(), $event->directionLabel(),
         ]);
+
+        return app(TabularReportExporter::class)->download($format, 'zchpc-access-event-log',
+            'ZCHPC Access Event Log',
+            'Period '.$filters['from']->format('Y-m-d H:i').' to '.$filters['to']->format('Y-m-d H:i').' | '.config('attendance.timezone').' | '.$rows->count().' records',
+            ['Time', 'Terminal', 'Entrance', 'Person', 'Employee ID', 'Method', 'Result', 'Direction'], $rows);
     }
 
     /**
@@ -193,7 +200,7 @@ class EventController extends Controller
             'door_id' => ['nullable', 'integer', 'exists:doors,id'],
             'personnel_id' => ['nullable', 'integer', 'exists:personnel,id'],
             'search' => ['nullable', 'string', 'max:64'],
-            'outcome' => ['nullable', 'in:all,denied'],
+            'outcome' => ['nullable', 'in:all,denied,granted'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
         ]);
@@ -223,6 +230,12 @@ class EventController extends Controller
         if (($filters['outcome'] ?? 'all') === 'denied') {
             $query->failedAttempt();
         }
+        if (($filters['outcome'] ?? 'all') === 'granted') {
+            $query->where(function (Builder $q): void {
+                $q->where('event_type', 'AccessGranted')->orWhere(fn (Builder $q) => $q->where('major', 5)->whereIn('minor', [1, 21, 25, 26, 27, 38, 65, 75]));
+            })->where(fn (Builder $q) => $q->whereNull('event_type')->orWhere('event_type', '!=', 'AccessDenied'))
+                ->where(fn (Builder $q) => $q->whereNull('major')->orWhere('major', '!=', 5)->orWhereNull('minor')->orWhereNotIn('minor', AccessEvent::DENIED_MINOR_CODES));
+        }
 
         if (! empty($filters['door_id'])) {
             $door = Door::find($filters['door_id']);
@@ -238,7 +251,7 @@ class EventController extends Controller
         }
 
         if ($filters['personnel_id'] !== null) {
-            $employeeNo = Personnel::whereKey($filters['personnel_id'])->value('employee_no');
+            $employeeNo = Personnel::withTrashed()->whereKey($filters['personnel_id'])->value('employee_no');
             $query->where('employee_no', $employeeNo ?? '');
         }
 
@@ -246,7 +259,8 @@ class EventController extends Controller
             $term = '%'.$filters['search'].'%';
             $query->where(function (Builder $query) use ($term): void {
                 $query->where('person_name', 'like', $term)
-                    ->orWhere('employee_no', 'like', $term);
+                    ->orWhere('employee_no', 'like', $term)
+                    ->orWhereHas('personnel', fn (Builder $q) => $q->where('name', 'like', $term));
             });
         }
 
@@ -256,11 +270,15 @@ class EventController extends Controller
     /** @param array{terminal_id: int|null, door_id: int|null, personnel_id: int|null, search: string|null, from: Carbon, to: Carbon} $filters */
     private function reportEvents(array $filters): Collection
     {
-        return $this->filteredEvents($filters)
-            ->with('terminal')
+        $events = $this->filteredEvents($filters)
+            ->with(['terminal.doors', 'personnel'])
             ->orderByDesc('occurred_at')
             ->orderByDesc('id')
+            ->limit(5001)
             ->get();
+        abort_if($events->count() > 5000, 422, 'This report exceeds 5,000 records. Choose a shorter date range or an entrance/person filter.');
+
+        return $events;
     }
 
     /**
