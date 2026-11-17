@@ -103,9 +103,8 @@ class User extends Authenticatable
     }
 
     /**
-     * The effective role. Accounts created before roles existed have no value
-     * loaded on the model and remain administrators, matching the migration's
-     * default so no existing account loses access.
+     * Unknown or missing roles receive read-only viewer privileges. Explicit
+     * legacy administrator roles retain their existing administrative access.
      */
     public function role(): string
     {
