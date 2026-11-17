@@ -15,6 +15,23 @@ class PersonnelNumberingTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_scope_correction_numbers_current_users_and_drafts_without_restoring_archives(): void
+    {
+        $archived = Personnel::create(['name' => 'Archived Person', 'employee_no' => 'old']);
+        $archived->delete();
+        $active = Personnel::create(['name' => 'Current Person', 'employee_no' => 'current']);
+        $draft = Personnel::create(['name' => 'Draft Person', 'employee_no' => 'draft', 'status' => Personnel::STATUS_DRAFT]);
+        $migration = require database_path('migrations/2026_11_17_210000_number_only_current_personnel.php');
+        $migration->up();
+        $this->assertNull($archived->fresh()->personnel_code);
+        $this->assertTrue($archived->fresh()->trashed());
+        $this->assertSame('HPC001', $active->fresh()->employee_id);
+        $this->assertSame('HPC002', $draft->fresh()->employee_id);
+        $this->assertSame('HPC003', PersonnelNumbering::preview());
+        $this->assertSame('current', $active->fresh()->employee_no);
+        $this->assertSame(3, Personnel::withTrashed()->count());
+    }
+
     public function test_numbers_are_reserved_and_device_identity_is_preserved(): void
     {
         $person = Personnel::create(['name' => 'First Person', 'employee_no' => '0007']);

@@ -39,6 +39,24 @@ class AccessProvisioner
             $person = Personnel::where('employee_no', $employeeNo)->first();
             $approved = $person && ! $person->isDraft() && $person->isActive() && $person->terminals()->whereKey($terminal->id)->wherePivot('access_allowed', true)->exists();
             if (($existing['userType'] ?? null) !== 'blackList' && ! $approved) {
+                // A pristine draft may have a legacy number already owned by
+                // somebody else on the device. Never overwrite that identity.
+                $newNumber = $person?->personnel_code;
+                if ($person?->isDraft() && $newNumber && $newNumber !== $employeeNo
+                    && ! $person->fingerprintEnrollments()->exists()
+                    && ! $person->terminals()->exists()
+                    && ! $person->doors()->exists()
+                    && ! $person->pendingSyncs()->exists()
+                    && ! Personnel::withTrashed()->where('employee_no', $newNumber)->exists()
+                    && $this->readPerson($client, $newNumber) === null) {
+                    $person->update(['employee_no' => $newNumber]);
+                    $this->audit->log('enrollment_identity_reassigned', 'info',
+                        'Assigned the draft its HPC device identifier because its previous identifier was already occupied.',
+                        ['previous_device_id' => $employeeNo, 'device_id' => $newNumber], personnel: $person, terminal: $terminal);
+                    $this->ensureEnrollmentIdentity($terminal, $newNumber, $name, $phone);
+
+                    return;
+                }
                 throw new \RuntimeException('Existing identity is not confirmed blocked or locally authorized. Review access before enrollment.');
             }
 
