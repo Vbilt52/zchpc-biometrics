@@ -52,7 +52,29 @@ class AccessEvent extends Model
 
     public function personnel(): BelongsTo
     {
-        return $this->belongsTo(Personnel::class, 'employee_no', 'employee_no');
+        return $this->belongsTo(Personnel::class, 'employee_no', 'employee_no')->withTrashed();
+    }
+
+    public function displayName(): string
+    {
+        return $this->personnel?->name ?: ($this->person_name ?: 'Unknown person');
+    }
+
+    public function entranceLabel(): string
+    {
+        $number = $this->raw_payload['doorNo'] ?? null;
+        $door = $number === null ? null : $this->terminal?->doors->firstWhere('door_no', (int) $number);
+
+        return $door?->name ?? ($number === null ? 'Door not reported' : 'Door '.$number);
+    }
+
+    public function directionLabel(): string
+    {
+        return match (strtolower((string) ($this->raw_payload['inOutType'] ?? ''))) {
+            'in', 'entry' => 'Entry',
+            'out', 'exit' => 'Exit',
+            default => 'Not reported',
+        };
     }
 
     public function isSuccessfulFingerprint(): bool
@@ -116,7 +138,7 @@ class AccessEvent extends Model
         }
         $minor = (int) ($this->minor ?? 0);
 
-        if (in_array($minor, [1, 21, 25, 26, 27, 28, 38, 65, 75], true)
+        if (($this->major === 5 && in_array($minor, [1, 21, 25, 26, 27, 28, 38, 65, 75], true))
             || $this->event_type === 'AccessGranted') {
             return $minor === 28 ? 'Exit' : 'Granted';
         }

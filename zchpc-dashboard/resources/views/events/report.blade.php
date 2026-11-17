@@ -24,10 +24,10 @@
     <div class="header">
         <h1>Zimbabwe Centre for High Performance Computing</h1>
         <h2>{{ ($filters['outcome'] ?? 'all') === 'denied' ? 'Failed Access Attempts' : 'Access Control Event Audit Log' }}</h2>
-        <div class="meta">Period: {{ $filters['from']->format('d M Y H:i') }} to {{ $filters['to']->format('d M Y H:i') }} | Records: {{ $events->count() }} | Generated: {{ now()->format('d M Y H:i:s') }}</div>
+        <div class="meta">Period: {{ $filters['from']->format('d M Y H:i') }} to {{ $filters['to']->format('d M Y H:i') }} | {{ config('attendance.timezone') }} | Records: {{ $events->count() }} | Generated: {{ now(config('attendance.timezone'))->format('d M Y H:i:s') }}</div>
     </div>
     <table>
-        <thead><tr><th>Time</th><th>Terminal</th><th>Door</th><th>Person</th><th>Employee ID</th><th>Method</th><th>Result</th></tr></thead>
+        <thead><tr><th>Time</th><th>Terminal</th><th>Entrance</th><th>Person</th><th>Employee ID</th><th>Method</th><th>Result</th><th>Direction</th></tr></thead>
         <tbody>
             @forelse($events as $event)
                 @php
@@ -37,11 +37,12 @@
                 <tr>
                     <td>{{ app(\App\Services\AttendanceRegisterService::class)->eventTime($event)?->format('d M Y H:i:s') ?? 'Unknown' }}</td>
                     <td>{{ $event->terminal?->name ?? 'Removed terminal' }}</td>
-                    <td>{{ $doorNo ? 'Door '.$doorNo : '—' }}</td>
-                    <td>{{ $event->person_name ?: ($event->personnel?->name ?: 'Unknown person') }}</td>
+                    <td>{{ $event->entranceLabel() }}</td>
+                    <td>{{ $event->displayName() }}</td>
                     <td>{{ $event->employee_no ?? '—' }}</td>
                     <td>{{ $event->methodLabel() }}</td>
                     <td class="{{ strtolower($outcome) }}">{{ $outcome }}</td>
+                    <td>{{ $event->directionLabel() }}</td>
                 </tr>
             @empty
                 <tr><td colspan="7" style="text-align:center;">No records match these filters.</td></tr>
