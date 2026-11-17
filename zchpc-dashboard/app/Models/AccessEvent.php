@@ -25,6 +25,14 @@ class AccessEvent extends Model
             || ((int) $this->major === 5 && in_array((int) $this->minor, self::DENIED_MINOR_CODES, true));
     }
 
+    public function scopeGrantedAccess(Builder $query): void
+    {
+        $query->where(function (Builder $q): void {
+            $q->where('event_type', 'AccessGranted')->orWhere(fn (Builder $q) => $q->where('major', 5)->whereIn('minor', [1, 21, 25, 26, 27, 38, 65, 75]));
+        })->where(fn (Builder $q) => $q->whereNull('event_type')->orWhere('event_type', '!=', 'AccessDenied'))
+            ->where(fn (Builder $q) => $q->whereNull('major')->orWhere('major', '!=', 5)->orWhereNull('minor')->orWhereNotIn('minor', [...self::DENIED_MINOR_CODES, 28]));
+    }
+
     protected $fillable = [
         'terminal_id',
         'event_key',

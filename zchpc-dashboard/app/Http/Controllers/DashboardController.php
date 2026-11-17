@@ -39,22 +39,18 @@ class DashboardController extends Controller
         $departments = AccessGroup::withCount('personnel')->orderBy('name')->get();
 
         // Attendance metrics
-        $todayEvents = AccessEvent::where('occurred_at', '>=', $todayStart)->get();
+        $todayEvents = AccessEvent::where('occurred_at', '>=', $todayStart)->grantedAccess()->get(['employee_no']);
         $uniquePresentToday = $todayEvents->whereNotNull('employee_no')->pluck('employee_no')->unique()->count();
 
-        // High security zone entries (Server Room = Door 2, UPS Room = Door 3)
+        // Match named controllers; channel numbers are only unique within a controller.
         $serverRoomEntries = AccessEvent::where('occurred_at', '>=', $todayStart)
-            ->where(function ($q): void {
-                $q->where('terminal_id', 2)->orWhere('raw_payload->doorNo', 2);
-            })->count();
+            ->grantedAccess()->whereHas('terminal', fn ($q) => $q->whereRaw('LOWER(name) = ?', ['server room']))->count();
 
         $upsRoomEntries = AccessEvent::where('occurred_at', '>=', $todayStart)
-            ->where(function ($q): void {
-                $q->where('terminal_id', 3)->orWhere('raw_payload->doorNo', 3);
-            })->count();
+            ->grantedAccess()->whereHas('terminal', fn ($q) => $q->whereRaw('LOWER(name) = ?', ['ups room']))->count();
 
         $failedAttemptsToday = AccessEvent::where('occurred_at', '>=', $todayStart)->failedAttempt()->count();
-        $totalAccessToday = $todayEvents->count();
+        $totalAccessToday = AccessEvent::where('occurred_at', '>=', $todayStart)->count();
 
         // Department attendance breakdown (single query grouped by access_group_id to avoid N+1 queries)
         $personnelByDept = Personnel::query()
@@ -115,6 +111,7 @@ class DashboardController extends Controller
         $departments = AccessGroup::withCount('personnel')->orderBy('name')->get();
 
         $recentClockIns = AccessEvent::where('occurred_at', '>=', $todayStart)
+            ->grantedAccess()->with('personnel')
             ->whereNotNull('employee_no')
             ->orderBy('occurred_at', 'asc')
             ->limit(20)
@@ -148,7 +145,7 @@ class DashboardController extends Controller
 
         $recentAudits = AccessAuditLog::with(['door', 'terminal'])->latest('id')->limit(25)->get();
         $recentSyncs = DeviceSyncEvent::with('terminal')->latest('id')->limit(20)->get();
-        $recentAccessEvents = AccessEvent::with('terminal')->orderByDesc('occurred_at')->limit(20)->get();
+        $recentAccessEvents = AccessEvent::with(['terminal', 'personnel'])->orderByDesc('occurred_at')->limit(20)->get();
 
         return view('dashboard.audit', compact('stats', 'recentAudits', 'recentSyncs', 'recentAccessEvents'));
     }
@@ -173,16 +170,20 @@ class DashboardController extends Controller
         $today = now($zone)->startOfDay();
         $sevenDaysAgo = $today->copy()->subDays(6)->utc();
         $tomorrowUtc = $today->copy()->addDay()->utc();
-        $weekEvents = AccessEvent::query()
+        $weekQuery = AccessEvent::query()
             ->where('occurred_at', '>=', $sevenDaysAgo)
-            ->where('occurred_at', '<', $tomorrowUtc)
-            ->pluck('occurred_at');
+            ->where('occurred_at', '<', $tomorrowUtc);
+        for ($ago = 6; $ago >= 0; $ago--) {
+            $start = $today->copy()->subDays($ago)->utc();
+            $weekQuery->selectRaw('SUM(CASE WHEN occurred_at >= ? AND occurred_at < ? THEN 1 ELSE 0 END) AS day_'.$ago, [$start, $start->copy()->addDay()]);
+        }
+        $weekCounts = $weekQuery->first();
 
         $chartDays = [];
         for ($ago = 6; $ago >= 0; $ago--) {
             $dayStart = $today->copy()->subDays($ago)->utc();
             $dayEnd = $dayStart->copy()->addDay();
-            $count = $weekEvents->filter(fn ($dt) => $dt && $dt >= $dayStart && $dt < $dayEnd)->count();
+            $count = (int) $weekCounts->{'day_'.$ago};
             $chartDays[] = ['day' => $today->copy()->subDays($ago)->format('D d M'), 'count' => $count];
         }
         $chartMax = max(5, (int) (ceil(max(array_column($chartDays, 'count')) / 5) * 5));
@@ -206,7 +207,7 @@ class DashboardController extends Controller
                             : $occurred->format('M d, H:i:s')))
                     : 'Just now';
 
-                $personName = $event->person_name ?: $event->personnel?->name;
+                $personName = $event->personnel?->name ?: $event->person_name;
                 $displayName = $personName ?: ($event->employee_no ? 'Employee #'.$event->employee_no : 'Door / Sensor Event');
                 $method = $event->methodLabel();
                 $outcome = $event->outcomeLabel();

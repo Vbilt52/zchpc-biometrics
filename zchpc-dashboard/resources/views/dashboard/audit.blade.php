@@ -130,7 +130,7 @@
                                     {{ $evt->occurred_at?->timezone(config('attendance.timezone'))->format('H:i:s') }}
                                 </td>
                                 <td style="padding:0.65rem 0.85rem;">
-                                    <div style="font-weight:600;color:#0f172a;">{{ $evt->person_name ?: ($evt->employee_no ? 'Employee #' . $evt->employee_no : 'Door / Sensor Event') }}</div>
+                                    <div style="font-weight:600;color:#0f172a;">{{ $evt->displayName() }}</div>
                                     <div style="font-size:0.75rem;color:#64748b;">{{ $evt->methodLabel() }}</div>
                                 </td>
                                 <td style="padding:0.65rem 0.85rem;color:#334155;">

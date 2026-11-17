@@ -79,7 +79,7 @@ class AttendanceRegisterService
                     'terminal_id' => $event->terminal_id,
                     'terminal_name' => $event->terminal?->name ?? 'Removed terminal',
                     'employee_no' => $event->employee_no,
-                    'owner' => $event->person_name ?: ($event->personnel?->name ?? 'Unmatched employee'),
+                    'owner' => $event->displayName(),
                     'department' => $event->personnel?->accessGroup?->name ?? $event->personnel?->department,
                     'access_group_id' => $event->personnel?->access_group_id,
                     'scans' => [],

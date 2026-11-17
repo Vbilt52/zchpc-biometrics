@@ -8,9 +8,9 @@
 
 <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:flex-start;margin-bottom:1rem;">
     <div>
-        <h2 style="margin:0;">Permission and enrollment history</h2>
+        <h2 style="margin:0;">Identity and system change history</h2>
         <p class="hint" style="margin-top:.3rem;">
-            Append-only record of identity, door-permission, enrollment and deletion actions. Biometric templates are never logged.
+            Records account, personnel, door permission, enrollment and removal actions. Times use {{ config('attendance.timezone') }}. Actor and subject names reflect the recorded action.
         </p>
     </div>
     <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
@@ -69,17 +69,22 @@
             <tbody>
             @forelse($logs as $log)
                 <tr>
-                    <td class="hint" style="white-space:nowrap;">{{ $log->created_at?->format('d M Y H:i:s') }}</td>
+                    <td class="hint" style="white-space:nowrap;">{{ $log->created_at?->timezone(config('attendance.timezone'))->format('d M Y H:i:s') }}</td>
                     <td>{{ $log->user_name }}</td>
                     <td style="font-weight:600;">{{ $log->actionLabel() }}</td>
                     <td>
                         {{ $log->subject_label ?: '—' }}
+                        @if($log->door)<div class="hint">{{ $log->door->name }}</div>@endif
+                        @if(isset($log->context['employee_no']))<div class="hint">Employee ID: {{ $log->context['employee_no'] }}</div>@endif
                         @if($log->terminal)
                             <div class="hint">{{ $log->terminal->name }}</div>
                         @endif
                     </td>
                     <td><span class="badge badge-{{ $log->tone() === 'muted' ? 'muted' : $log->tone() }}">{{ $log->outcome }}</span></td>
-                    <td style="max-width:420px;font-size:.8rem;">{{ $log->description ?: '—' }}</td>
+                    <td style="max-width:420px;font-size:.8rem;">{{ $log->description ?: '—' }}
+                        @if(isset($log->context['pending_devices']))<div>Device removals queued: {{ $log->context['pending_devices'] }}</div>@endif
+                        @if(isset($log->context['bulk_selection_count']))<div>Bulk selection: {{ $log->context['bulk_selection_count'] }} people</div>@endif
+                    </td>
                     <td class="hint">{{ $log->ip_address ?: '—' }}</td>
                 </tr>
             @empty
