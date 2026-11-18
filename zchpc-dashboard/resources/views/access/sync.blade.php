@@ -19,6 +19,7 @@
 
 <div class="access-stat-row">
     <div class="access-stat"><div class="value">{{ $stats['pending'] }}</div><div class="label">Writes pending</div></div>
+    <div class="access-stat"><div class="value">{{ $stats['fingerprints_pending'] }}</div><div class="label">Fingerprint transfers pending</div></div>
     <div class="access-stat"><div class="value">{{ $stats['failing'] }}</div><div class="label">Have failed at least once</div></div>
     <div class="access-stat"><div class="value">{{ $stats['confirmed_today'] }}</div><div class="label">Confirmed today</div></div>
     <div class="access-stat"><div class="value">{{ $stats['failed_today'] }}</div><div class="label">Failed today</div></div>
@@ -73,7 +74,7 @@
                   onsubmit="return confirm('Retry every pending controller write now?')">
                 @csrf
                 <input type="hidden" name="scope" value="pending">
-                <button class="btn btn-outline" type="submit"><i class="fa-solid fa-arrows-rotate"></i> Retry pending ({{ $stats['pending'] }})</button>
+                <button class="btn btn-outline" type="submit"><i class="fa-solid fa-arrows-rotate"></i> Retry pending ({{ $stats['pending'] + $stats['fingerprints_pending'] }})</button>
             </form>
         </div>
 
@@ -94,12 +95,25 @@
         </details>
 
         <p class="hint" style="margin-top:.8rem;">
-            Queued work is processed by the queue worker (<code>php artisan queue:work</code>). The scheduler retries
-            pending writes every minute. If no worker is running, writes stay pending.
+            Pending profiles and approved fingerprint transfers retry automatically. Offline devices and identity conflicts remain pending until they can be verified.
         </p>
     @else
         <p class="hint" style="margin:0;">You can view synchronization state. An administrator can retry writes.</p>
     @endcan
+</div>
+
+<div class="table-card" style="margin-bottom:1.25rem;">
+    <div class="table-header"><h3 style="margin:0;font-size:.95rem;">Fingerprint transfer status</h3><span class="hint">Latest 100 · pending first</span></div>
+    <div class="table-wrapper" tabindex="0" aria-label="Fingerprint transfers">
+        <table><thead><tr><th>Person</th><th>Source</th><th>Destination</th><th>Status</th><th>Details</th></tr></thead>
+            <tbody>@forelse($fingerprintSyncs as $transfer)
+                <tr><td><strong>{{ $transfer->personnel?->name ?? 'Archived identity' }}</strong><div class="hint">{{ $transfer->personnel?->employee_id }}</div></td>
+                    <td>{{ $transfer->sourceTerminal?->name }}</td><td>{{ $transfer->terminal?->name }}</td>
+                    <td><span class="badge {{ $transfer->status === 'confirmed' ? 'badge-success' : 'badge-warning' }}">{{ ucfirst($transfer->status) }}</span></td>
+                    <td>{{ $transfer->message }}</td></tr>
+            @empty<tr><td colspan="5" class="hint">No fingerprint transfers have been requested.</td></tr>@endforelse</tbody>
+        </table>
+    </div>
 </div>
 
 <div class="table-card" style="margin-bottom:1.25rem;">
@@ -117,7 +131,7 @@
                             @else
                                 <a href="{{ route('access.users.show', $sync->personnel) }}" style="font-weight:600;color:var(--zchpc-primary);text-decoration:none;">{{ $sync->personnel->name }}</a>
                             @endif
-                            <div class="hint"><code>{{ $sync->personnel->employee_no }}</code></div>
+                            <div class="hint"><code>{{ $sync->personnel->employee_id }}</code></div>
                         @else
                             <span class="hint">Removed person</span>
                         @endif

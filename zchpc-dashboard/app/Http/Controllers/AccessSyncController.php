@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\ProcessAccessSyncJob;
 use App\Models\DeviceSyncEvent;
+use App\Models\FingerprintSync;
 use App\Models\PendingTerminalSync;
 use App\Models\Personnel;
 use App\Models\Terminal;
@@ -29,10 +30,12 @@ class AccessSyncController extends Controller
             ->get();
 
         return view('access.sync', [
+            'fingerprintSyncs' => FingerprintSync::with(['personnel', 'terminal', 'sourceTerminal'])->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")->latest('updated_at')->limit(100)->get(),
             'pending' => $pending,
             'pendingByTerminal' => $pending->groupBy(fn (PendingTerminalSync $sync): string => $sync->terminal?->name ?? 'Removed controller'),
             'stats' => [
                 'pending' => PendingTerminalSync::query()->count(),
+                'fingerprints_pending' => FingerprintSync::where('status', 'pending')->count(),
                 'failing' => PendingTerminalSync::query()->where('attempts', '>', 0)->count(),
                 'confirmed_today' => DeviceSyncEvent::query()
                     ->where('status', DeviceSyncEvent::STATUS_SUCCESS)
@@ -64,15 +67,17 @@ class AccessSyncController extends Controller
 
         if ($validated['scope'] === 'pending') {
             $count = PendingTerminalSync::query()->count();
+            $fingerprints = FingerprintSync::where('status', 'pending')->count();
 
-            if ($count === 0) {
+            if ($count + $fingerprints === 0) {
                 return back()->with('success', 'There are no pending controller writes.');
             }
 
             PendingTerminalSync::query()->update(['next_attempt_at' => now()]);
+            FingerprintSync::where('status', 'pending')->update(['next_attempt_at' => now()]);
             ProcessAccessSyncJob::dispatch();
 
-            return back()->with('success', 'Retrying '.$count.' pending controller write(s). The queue worker will confirm each one.');
+            return back()->with('success', 'Retrying '.$count.' profile update(s) and '.$fingerprints.' fingerprint transfer(s). Each remains pending until the destination confirms it.');
         }
 
         $ids = $validated['scope'] === 'all'
