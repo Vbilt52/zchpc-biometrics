@@ -9,6 +9,7 @@ use App\Models\DeviceAlert;
 use App\Models\DeviceSyncEvent;
 use App\Models\Door;
 use App\Models\FingerprintEnrollment;
+use App\Models\FingerprintSync;
 use App\Models\PendingTerminalSync;
 use App\Models\Personnel;
 use App\Models\Terminal;
@@ -99,8 +100,10 @@ class DashboardController extends Controller
 
         $totalPersonnel = Personnel::count();
         $activePersonnel = Personnel::where('status', Personnel::STATUS_ACTIVE)->where('valid_enabled', true)->count();
-        $enrolledFingerprints = FingerprintEnrollment::where('status', FingerprintEnrollment::STATUS_CONFIRMED)
-            ->distinct()->count('personnel_id');
+        $enrolledFingerprints = Personnel::where(function ($query) {
+            $query->whereIn('id', FingerprintEnrollment::where('status', FingerprintEnrollment::STATUS_CONFIRMED)->select('personnel_id'))
+                ->orWhereIn('id', FingerprintSync::where('status', 'confirmed')->select('personnel_id'));
+        })->count();
         $drafts = Personnel::where('status', Personnel::STATUS_DRAFT)->count();
 
         $pendingSyncs = PendingTerminalSync::with(['personnel', 'terminal'])->limit(15)->get();

@@ -108,7 +108,8 @@ class TerminalController extends Controller
             return redirect()->route('terminals.index')->with('error', 'This terminal has historical access or attendance records and cannot be deleted.');
         }
 
-        if (DB::table('personnel_device_aliases')->where('terminal_id', $terminal->id)->exists()
+        if (DB::table('fingerprint_syncs')->where('terminal_id', $terminal->id)->orWhere('source_terminal_id', $terminal->id)->exists()
+            || DB::table('personnel_device_aliases')->where('terminal_id', $terminal->id)->exists()
             || DB::table('personnel_device_exclusions')->where('terminal_id', $terminal->id)->exists()) {
             return redirect()->route('terminals.index')->with('error', 'This terminal has reviewed identity links or import exclusions. Reconcile these before deleting it.');
         }
