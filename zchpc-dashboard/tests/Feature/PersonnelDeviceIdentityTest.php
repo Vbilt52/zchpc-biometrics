@@ -7,6 +7,7 @@ use App\Models\Personnel;
 use App\Models\Terminal;
 use App\Models\User;
 use App\Services\EventImportService;
+use App\Services\PersonnelDeviceAccessService;
 use App\Services\PersonnelDeviceIdentity;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -103,5 +104,52 @@ class PersonnelDeviceIdentityTest extends TestCase
         PersonnelDeviceIdentity::link($person, $this->terminal('Main'), '189');
         $this->expectException(ValidationException::class);
         Personnel::create(['employee_no' => '189', 'name' => 'Duplicate']);
+    }
+
+    public function test_held_id_cannot_misattribute_old_or_new_events_to_another_person(): void
+    {
+        $person = Personnel::create(['employee_no' => '180', 'name' => 'Main Entrance Person']);
+        $main = $this->terminal('Main');
+        $other = $this->terminal('Other');
+        $raw = ['employeeNoString' => '180', 'name' => 'Different Device Person', 'major' => 5, 'minor' => 38, 'time' => now()->toIso8601String()];
+        $old = AccessEvent::create(['terminal_id' => $other->id, 'employee_no' => '180', 'event_key' => 'held-old', 'raw_payload' => $raw]);
+        PersonnelDeviceIdentity::hold($other, '180', 'Operator requested conflicting identities remain unchanged.');
+        $this->assertNull($old->fresh()->personnel);
+        $this->assertSame('Different Device Person', $old->fresh()->displayName());
+        $this->assertSame('Device ID 180 · identity unconfirmed', $old->fresh()->employeeLabel());
+        $this->assertSame($raw, $old->fresh()->raw_payload);
+        $this->assertSame($person->id, PersonnelDeviceIdentity::resolve($main, '180')->id);
+        $this->assertNull(PersonnelDeviceIdentity::resolve($other, '180'));
+        $service = new class(app(DeviceManager::class), $raw) extends EventImportService
+        {
+            public function __construct($manager, private array $raw)
+            {
+                parent::__construct($manager);
+            }
+
+            protected function events(Terminal $terminal, Carbon $from, Carbon $to): \Generator
+            {
+                yield $this->raw;
+            }
+        };
+        $service->import($other, now()->subDay(), now(), ['180' => $person->name]);
+        $new = AccessEvent::where('event_key', '!=', 'held-old')->firstOrFail();
+        $this->assertNull($new->personnel);
+        $this->assertSame('Different Device Person', $new->displayName());
+    }
+
+    public function test_held_identity_removal_stays_pending_without_device_writes(): void
+    {
+        $person = Personnel::create(['employee_no' => '180', 'name' => 'Main Person']);
+        $terminal = $this->terminal('Other');
+        $person->terminals()->attach($terminal->id, ['access_allowed' => true, 'sync_status' => 'confirmed']);
+        PersonnelDeviceIdentity::hold($terminal, '180', 'Different device owner');
+        $manager = \Mockery::mock(DeviceManager::class);
+        $manager->shouldNotReceive('device');
+        $service = new PersonnelDeviceAccessService($manager);
+        $service->remove($person);
+        $result = $service->syncNow($person);
+        $this->assertSame(['synced' => 0, 'pending' => 1], $result);
+        $this->assertDatabaseHas('pending_terminal_syncs', ['personnel_id' => $person->id, 'terminal_id' => $terminal->id, 'operation' => 'delete']);
     }
 }

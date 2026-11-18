@@ -9,3 +9,8 @@ Personnel import resolves aliases before creating records and never restores arc
 Profile updates, authorized access changes and durable removal retries cover both the canonical ID and its confirmed aliases. A partial device failure retains the retry until every linked identity confirms the requested state. Alias IDs remain reserved against creation of duplicate personnel and automatic HPC allocation. Terminal deletion is blocked while reviewed links or exclusions exist.
 
 Regression coverage: original payload preservation, terminal-scoped resolution, historical/new events, archived identity protection, import exclusions, duplicate prevention, revocation without fingerprint changes and removal of all aliases.
+# Conflicting IDs across terminals
+
+An operator-reviewed conflict can be held with `PersonnelDeviceIdentity::hold`. The hold prevents profile changes, grants, revocations, deletion and enrollment against that specific terminal identity. Retry requests remain pending with an identity-review message. Import exclusions by themselves continue to prevent import only; they do not grant or revoke physical access.
+
+Held events retain their raw device payload and event key. Their normalized employee number uses the reserved `unresolved:<terminal>:<device ID>` namespace, so a reused numeric ID cannot join an unrelated personnel record or attendance identity. Reports label these as unconfirmed device IDs and retain the reported device name. This applies to existing events when the hold is recorded and to subsequent imports. Other terminals using the same number are unaffected. Resolving a hold requires an explicit identity review; automatic name similarity is not sufficient.

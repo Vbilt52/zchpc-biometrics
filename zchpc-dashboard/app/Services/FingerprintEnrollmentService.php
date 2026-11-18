@@ -154,6 +154,7 @@ class FingerprintEnrollmentService
         $timeout = max(15, (int) config('access.enrollment.timeout_seconds', 60));
 
         try {
+            PersonnelDeviceIdentity::assertWritable($enrollment->terminal, $enrollment->employee_no);
             $client = $this->clients->forTerminal($enrollment->terminal, $timeout);
 
             // Step 1: Activate terminal physical sensor and wait for live finger touch
