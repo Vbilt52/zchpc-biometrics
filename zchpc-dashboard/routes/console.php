@@ -21,4 +21,5 @@ Schedule::command('access:expire-grants')->everyFiveMinutes()->withoutOverlappin
 // without stalling the UI.
 Schedule::command('terminals:ping')->everyFifteenSeconds()->withoutOverlapping(5)->runInBackground();
 
-Schedule::command('terminals:sync-events')->everyMinute()->withoutOverlapping(30)->runInBackground();
+// Live workforce activity uses the same persisted checkpoints and overlap lock.
+Schedule::command('terminals:sync-events')->everyFifteenSeconds()->withoutOverlapping(30)->runInBackground();

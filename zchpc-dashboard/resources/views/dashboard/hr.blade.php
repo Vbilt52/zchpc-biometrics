@@ -15,7 +15,7 @@
             </p>
         </div>
 
-        <div style="display:flex;gap:0.75rem;align-items:center;">
+        <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
             <a href="{{ route('personnel.create') }}" style="padding:0.6rem 1.25rem;background:#047857;color:#ffffff;border-radius:0.5rem;font-weight:600;font-size:0.9rem;text-decoration:none;display:inline-flex;align-items:center;gap:0.5rem;box-shadow:0 1px 2px rgba(0,0,0,0.1);">
                 <i class="fa-solid fa-user-plus"></i> Add New Personnel
             </a>
@@ -52,58 +52,41 @@
         </div>
     </div>
 
-    <!-- 2-Column Section -->
-    <div class="responsive-pair" style="display:grid;gap:1.5rem;">
-        <!-- Left: Today's Sign-ins / Clock-ins -->
-        <div style="background:#ffffff;border-radius:0.75rem;box-shadow:0 1px 3px rgba(0,0,0,0.07);border:1px solid #e2e8f0;overflow:hidden;">
-            <div style="padding:1.25rem;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;">
-                <h3 style="font-size:1rem;color:#0f172a;font-weight:700;">
-                    <i class="fa-solid fa-clock" style="color:#0c70a2;"></i> Today's Personnel Clock-ins (Recent)
-                </h3>
-                <a href="{{ route('attendance.index') }}" style="font-size:0.8rem;color:#0c70a2;text-decoration:none;font-weight:600;">View All</a>
+    <section class="hr-activity" data-hr-activity data-url="{{ route('dashboard.hr.activity') }}" aria-labelledby="hr-activity-title">
+        <div class="hr-activity-heading">
+            <div><h2 id="hr-activity-title">Today's door activity</h2>
+                <p>{{ $activity['date'] }} · {{ $activity['timezone'] }} · Latest 50 recorded events</p>
             </div>
-
-            <div style="max-height:450px;overflow-y:auto;">
-                <table style="width:100%;border-collapse:collapse;font-size:0.85rem;text-align:left;">
-                    <thead>
-                        <tr style="background:#f1f5f9;color:#475569;font-size:0.75rem;text-transform:uppercase;">
-                            <th style="padding:0.65rem 0.85rem;">Time</th>
-                            <th style="padding:0.65rem 0.85rem;">Employee</th>
-                            <th style="padding:0.65rem 0.85rem;">Method</th>
-                            <th style="padding:0.65rem 0.85rem;">Location</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($recentClockIns as $clock)
-                            <tr style="border-bottom:1px solid #f1f5f9;">
-                                <td style="padding:0.65rem 0.85rem;font-weight:700;color:#0f172a;">
-                                    {{ $clock->occurred_at?->timezone(config('attendance.timezone'))->format('H:i:s') }}
-                                </td>
-                                <td style="padding:0.65rem 0.85rem;">
-                                    <div style="font-weight:600;color:#0f172a;">{{ $clock->displayName() }}</div>
-                                    <div style="font-size:0.75rem;color:#64748b;">ID: {{ $clock->employee_no }}</div>
-                                </td>
-                                <td style="padding:0.65rem 0.85rem;">
-                                    <span style="display:inline-block;padding:0.15rem 0.45rem;border-radius:4px;font-size:0.72rem;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;">
-                                        {{ $clock->methodLabel() }}
-                                    </span>
-                                </td>
-                                <td style="padding:0.65rem 0.85rem;color:#475569;">
-                                    {{ $clock->terminal?->name ?? 'Main Entrance' }}
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="4" style="padding:2rem;text-align:center;color:#64748b;">
-                                    No clock-in activity recorded yet today.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+            <div class="hr-activity-actions">
+                <button type="button" class="btn btn-secondary" data-activity-refresh>Refresh</button>
+                <a class="btn btn-secondary" href="{{ route('events.index') }}">Full log &amp; exports</a>
             </div>
         </div>
-
+        <p class="hr-feed-status" role="status" data-activity-status>Updated {{ $activity['updated_at'] }}. Refreshes every 10 seconds.</p>
+        <div class="hr-terminal-status" data-activity-terminals>
+            @foreach($activity['terminals'] as $terminal)
+                <div class="hr-terminal"><strong>{{ $terminal['name'] }}</strong><span class="hr-feed-badge" data-state="{{ $terminal['status'] }}">{{ $terminal['status'] }}</span><small>Logs through {{ $terminal['through'] ?? 'not yet collected' }}</small></div>
+            @endforeach
+        </div>
+        <p class="hr-feed-note">Terminal logs are collected automatically. Offline or delayed doors may have activity that has not arrived yet. A granted result confirms authorization; entry direction is shown only when reported by the device.</p>
+        <div class="table-wrapper hr-activity-table" tabindex="0" aria-label="Today's door activity">
+            <table><thead><tr><th>Time</th><th>Employee</th><th>Door / terminal</th><th>Method</th><th>Result</th><th>Direction</th></tr></thead>
+                <tbody data-activity-rows>
+                @forelse($activity['events'] as $event)
+                    <tr><td data-label="Time">{{ $event['time'] }}</td>
+                        <td data-label="Employee"><strong>{{ $event['name'] }}</strong><small>{{ $event['employee_id'] }}</small></td>
+                        <td data-label="Door / terminal"><strong>{{ $event['terminal'] }}</strong><small>{{ $event['door'] }}</small></td>
+                        <td data-label="Method">{{ $event['method'] }}</td>
+                        <td data-label="Result"><span class="hr-feed-badge" data-state="{{ $event['outcome'] }}">{{ $event['outcome'] }}</span></td>
+                        <td data-label="Direction">{{ $event['direction'] }}</td></tr>
+                @empty
+                    <tr><td colspan="6" class="hr-activity-empty">No personnel activity received today.</td></tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <div class="hr-sync-section">
         <!-- Right: Terminal Sync Health for Managed Personnel -->
         <div style="background:#ffffff;border-radius:0.75rem;box-shadow:0 1px 3px rgba(0,0,0,0.07);border:1px solid #e2e8f0;overflow:hidden;">
             <div style="padding:1.25rem;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;">
@@ -145,7 +128,7 @@
                             <tr>
                                 <td colspan="4" style="padding:2.5rem;text-align:center;color:#047857;">
                                     <i class="fa-solid fa-circle-check" style="font-size:2rem;color:#047857;margin-bottom:0.5rem;display:block;"></i>
-                                    All personnel records are fully synchronized across all 4 door controllers.
+                                    No personnel updates are waiting in the sync queue.
                                 </td>
                             </tr>
                         @endforelse
@@ -157,3 +140,10 @@
 </div>
 @endsection
 
+
+@push('styles')
+<link rel="stylesheet" href="{{ asset('css/hr-activity.css') }}?v={{ filemtime(public_path('css/hr-activity.css')) }}">
+@endpush
+@push('scripts')
+<script src="{{ asset('js/hr-activity.js') }}?v={{ filemtime(public_path('js/hr-activity.js')) }}" defer></script>
+@endpush
