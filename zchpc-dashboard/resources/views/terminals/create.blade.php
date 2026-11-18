@@ -24,7 +24,7 @@
         <form action="{{ route('terminals.store') }}" method="POST">
             @csrf
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+            <div class="responsive-pair" style="display:grid; gap: 1.5rem; margin-bottom: 1.5rem;">
                 <div>
                     <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Terminal Name <span style="color:var(--danger);">*</span></label>
                     <input type="text" name="name" value="{{ old('name') }}" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--zchpc-border); border-radius: var(--radius-md);" placeholder="e.g. Main Entrance">

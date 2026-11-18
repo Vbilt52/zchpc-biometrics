@@ -22,7 +22,7 @@
 <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
 
     {{-- Left: Person Card --}}
-    <div style="flex:1;min-width:280px;max-width:360px;">
+    <div style="flex:1;min-width:min(280px,100%);max-width:360px;">
 
         {{-- Identity Card --}}
         <div class="table-card animate-fade-in" style="margin-bottom:1.25rem;overflow:hidden;">
@@ -141,7 +141,7 @@
     </div>
 
     {{-- Right: Sync Status & Biometric Enrollment --}}
-    <div style="flex:2;min-width:320px;">
+    <div style="flex:2;min-width:min(320px,100%);">
         {{-- Direct Biometric Enrollment Card --}}
         @if($terminals->isNotEmpty())
         @php

@@ -31,7 +31,7 @@
     @endif
 
     <!-- Top KPI Row -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:1rem;margin-bottom:1.5rem;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(min(220px, 100%), 1fr));gap:1rem;margin-bottom:1.5rem;">
         <div style="background:#ffffff;border-radius:0.75rem;padding:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.07);border:1px solid #e2e8f0;display:flex;align-items:center;gap:1rem;">
             <div style="width:48px;height:48px;border-radius:0.5rem;background:#e0f2fe;color:#0284c7;display:flex;align-items:center;justify-content:center;font-size:1.3rem;">
                 <i class="fa-solid fa-users-gear"></i>

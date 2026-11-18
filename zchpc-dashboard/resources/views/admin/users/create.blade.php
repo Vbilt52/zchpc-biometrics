@@ -35,7 +35,7 @@
             @csrf
 
             <!-- Section 1: User Identity -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem;">
+            <div class="responsive-pair" style="display:grid;gap:1.25rem;margin-bottom:1.25rem;">
                 <div>
                     <label style="display:block;font-weight:600;font-size:0.875rem;color:#334155;margin-bottom:0.4rem;">
                         Full Name <span style="color:#dc2626;">*</span>
@@ -51,7 +51,7 @@
                 </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem;">
+            <div class="responsive-pair" style="display:grid;gap:1.25rem;margin-bottom:1.5rem;">
                 <div>
                     <label style="display:block;font-weight:600;font-size:0.875rem;color:#334155;margin-bottom:0.4rem;">
                         Official Email Address <span style="color:#dc2626;">*</span>
@@ -98,7 +98,7 @@
                     Super Admin and Systems Engineer automatically inherit all permissions. Use these checkboxes to grant select operational powers to management roles:
                 </p>
 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+                <div class="responsive-pair" style="display:grid;gap:0.5rem;">
                     @foreach($availablePermissions as $permKey => $permLabel)
                         <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:#334155;">
                             <input type="checkbox" name="permissions[]" value="{{ $permKey }}" {{ in_array($permKey, old('permissions', [])) ? 'checked' : '' }}>
