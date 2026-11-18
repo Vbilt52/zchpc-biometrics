@@ -12,6 +12,7 @@ use App\Models\FingerprintEnrollment;
 use App\Models\PendingTerminalSync;
 use App\Models\Personnel;
 use App\Models\Terminal;
+use App\Models\TerminalEventSync;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
@@ -96,9 +97,6 @@ class DashboardController extends Controller
     {
         Gate::authorize('dashboards.hr');
 
-        $zone = config('attendance.timezone');
-        $todayStart = now($zone)->startOfDay()->utc();
-
         $totalPersonnel = Personnel::count();
         $activePersonnel = Personnel::where('status', Personnel::STATUS_ACTIVE)->where('valid_enabled', true)->count();
         $enrolledFingerprints = FingerprintEnrollment::where('status', FingerprintEnrollment::STATUS_CONFIRMED)
@@ -110,12 +108,7 @@ class DashboardController extends Controller
 
         $departments = AccessGroup::withCount('personnel')->orderBy('name')->get();
 
-        $recentClockIns = AccessEvent::where('occurred_at', '>=', $todayStart)
-            ->grantedAccess()->with('personnel')
-            ->whereNotNull('employee_no')
-            ->orderBy('occurred_at', 'asc')
-            ->limit(20)
-            ->get();
+        $activity = $this->hrActivityData();
 
         return view('dashboard.hr', compact(
             'totalPersonnel',
@@ -125,8 +118,55 @@ class DashboardController extends Controller
             'pendingSyncs',
             'pendingSyncsCount',
             'departments',
-            'recentClockIns'
+            'activity'
         ));
+    }
+
+    public function hrActivity(): JsonResponse
+    {
+        Gate::authorize('dashboards.hr');
+
+        return response()->json($this->hrActivityData())->header('Cache-Control', 'private, no-store');
+    }
+
+    private function hrActivityData(): array
+    {
+        $zone = config('attendance.timezone');
+        $today = now($zone)->startOfDay();
+        $events = AccessEvent::with(['personnel', 'terminal.doors'])
+            ->where('occurred_at', '>=', $today->copy()->utc())
+            ->where('occurred_at', '<=', now()->utc())
+            ->whereNotNull('employee_no')->where('employee_no', '!=', '')
+            ->orderByDesc('occurred_at')->orderByDesc('id')->limit(50)->get();
+        $checkpoints = TerminalEventSync::all()->keyBy('terminal_id');
+
+        return [
+            'date' => $today->format('d M Y'),
+            'timezone' => $zone,
+            'updated_at' => now($zone)->format('H:i:s'),
+            'events' => $events->map(fn (AccessEvent $event) => [
+                'id' => $event->id,
+                'time' => $event->occurred_at->copy()->timezone($zone)->format('H:i:s'),
+                'name' => $event->displayName(),
+                'employee_id' => $event->personnel?->employee_id ?? $event->employee_no,
+                'terminal' => $event->terminal?->name ?? 'Unknown terminal',
+                'door' => $event->entranceLabel(),
+                'direction' => $event->directionLabel(),
+                'method' => $event->methodLabel(),
+                'outcome' => $event->outcomeLabel(),
+            ])->all(),
+            'terminals' => Terminal::apiManaged()->orderBy('name')->get()->map(function (Terminal $terminal) use ($checkpoints, $zone) {
+                $state = $checkpoints->get($terminal->id);
+                $fresh = $terminal->isOnline() && $state?->last_success_at?->gte(now()->subMinutes(2))
+                    && $state?->through_at?->gte(now()->subMinutes(2)) && ! $state?->last_error;
+
+                return [
+                    'name' => $terminal->name,
+                    'status' => ! $terminal->isOnline() ? $terminal->statusLabel() : ($fresh ? 'Current' : 'Delayed'),
+                    'through' => $state?->through_at?->copy()->timezone($zone)->format('d M H:i:s'),
+                ];
+            })->all(),
+        ];
     }
 
     public function audit(): View
@@ -225,13 +265,13 @@ class DashboardController extends Controller
                     'time_formatted' => $timeFormatted,
                     'time_relative' => $occurred?->diffForHumans(),
                     'name' => $displayName,
-                    'employeeNoString' => $personName ? $event->employee_no : null,
+                    'employeeNoString' => $personName ? ($event->personnel?->employee_id ?? $event->employee_no) : null,
                     'major' => $event->major,
                     'minor' => $event->minor,
                     'method' => $method,
                     'outcome' => $outcome,
                     'outcome_class' => $outcomeClass,
-                    'terminal_name' => $event->terminal?->name ?? 'Main Entrance',
+                    'terminal_name' => $event->terminal?->name ?? 'Unknown terminal',
                 ];
             })->all();
         $formattedDateTime = now($zone)->format('D, d M Y | H:i');

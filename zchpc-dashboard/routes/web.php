@@ -42,6 +42,7 @@ Route::middleware(['auth', 'auth.session', EnsureAccountReady::class])->group(fu
     Route::get('/dashboard/live-data', [DashboardController::class, 'liveData'])->name('dashboard.live-data');
     Route::get('/dashboard/executive', [DashboardController::class, 'executive'])->name('dashboard.executive');
     Route::get('/dashboard/hr', [DashboardController::class, 'hr'])->name('dashboard.hr');
+    Route::get('/dashboard/hr/activity', [DashboardController::class, 'hrActivity'])->name('dashboard.hr.activity');
     Route::get('/dashboard/audit', [DashboardController::class, 'audit'])->name('dashboard.audit');
 
     // Administration — User Accounts (Super Admin and Systems Engineer only)
