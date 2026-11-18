@@ -45,5 +45,11 @@
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     });
+    // Wide data grids remain keyboard-scrollable as well as swipeable.
+    document.querySelectorAll('.table-wrapper, .matrix-wrapper').forEach(region => {
+        region.tabIndex = 0;
+        if (!region.hasAttribute('role')) region.setAttribute('role', 'region');
+        if (!region.hasAttribute('aria-label')) region.setAttribute('aria-label', 'Scrollable records');
+    });
     render();
 })();

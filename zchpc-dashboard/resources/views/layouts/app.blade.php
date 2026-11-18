@@ -248,7 +248,7 @@
             <header class="top-header">
                 <div class="top-header-left">
                     <button class="sidebar-toggle-btn" type="button" aria-label="Toggle navigation" aria-controls="app-navigation" aria-expanded="true">
-                        <i class="fa-solid fa-bars"></i>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
                     </button>
                 </div>
 
