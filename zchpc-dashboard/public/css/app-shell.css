@@ -47,3 +47,56 @@ img { max-width: 100%; }
     .table-header > *, .log-action-form, .log-exports { max-width: 100%; }
     .access-stat-row, .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Shared content sizing: keep wide records inside their scroll region. */
+.main-content, .content-wrapper, .table-card, .dashboard-card { min-width: 0; }
+.responsive-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.responsive-pair > *, .form-grid > *, .access-layout > *, .person-fields > *,
+.dashboard-middle-row > *, .dashboard-bottom-row > * { min-width: 0; }
+.table-wrapper, .matrix-wrapper { width: 100%; max-width: 100%; overscroll-behavior-x: contain; }
+.table-wrapper:focus-visible, .matrix-wrapper:focus-visible { outline-offset: -3px; }
+.content-wrapper :is(h1, h2, h3, p, .hint, .alert) { overflow-wrap: anywhere; }
+.content-wrapper input[type="file"] { width: 100%; }
+.device-modal-card, .device-toasts { max-width: calc(100vw - 2rem); overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+    .responsive-pair { grid-template-columns: minmax(0, 1fr); }
+    .sidebar { overflow: hidden; }
+    .sidebar-nav { flex: 1 1 auto; }
+    .sidebar-user-block { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+}
+@media (max-width: 600px) {
+    .content-wrapper :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea),
+    .header-search-bar .search-input { font-size: 16px !important; }
+    .content-wrapper :is(.btn, button, input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea) { min-height: 44px; }
+    .content-wrapper .btn { white-space: normal; text-align: center; justify-content: center; }
+    .form-grid, .person-fields, .kpi-cards-grid, .stats-grid { grid-template-columns: minmax(0, 1fr); }
+    .form-grid > *, .person-fields > * { grid-column: auto !important; }
+    .table-header { padding: 1rem; }
+    .table-header > *, .filter-bar > *, .form-actions > * { min-width: 0; max-width: 100%; }
+    .filter-bar, .form-actions { flex-wrap: wrap; }
+    .wizard-steps { max-width: 100%; }
+    .events-table-header { display: none; }
+    .events-table-row { grid-template-columns: minmax(0, 1fr); gap: .5rem; padding: 1rem 0; }
+    .events-table-row > div { overflow-wrap: anywhere; }
+    .events-table-row > div::before { display: inline-block; min-width: 5rem; font-weight: 600; color: #64748b; }
+    .events-table-row .col-time::before { content: "Time"; }
+    .events-table-row .col-personnel::before { content: "Person"; }
+    .events-table-row .col-event::before { content: "Method"; }
+    .events-table-row .col-device::before { content: "Entrance"; }
+    .events-table-row .col-details::before { content: "Result"; }
+    .device-modal { padding: .75rem; }
+    .device-modal-card { padding: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .sidebar, .main-content, .nav-item { transition: none; }
+    .animate-fade-in { animation: none; }
+}
+
+.chart-main-body { min-width: 0; }
+.chart-bar-slot, .chart-x-label-item { flex: 1 1 0; min-width: 0; }
+.chart-bar-fill { max-width: 80%; }
+.sidebar-toggle-btn { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+@media (max-width: 600px) {
+    .page-title-row { flex-wrap: wrap; gap: .75rem; }
+    .chart-x-label-item { font-size: .65rem; overflow-wrap: anywhere; }
+}

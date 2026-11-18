@@ -498,3 +498,11 @@
         margin-top: 0.75rem;
     }
 }
+
+/* Phone keyboards and short landscape screens keep every action reachable. */
+.auth-modal { max-height: calc(100dvh - 2rem); overflow-y: auto; }
+@media (max-width: 600px) {
+    .auth-page input { font-size: 16px; min-height: 44px; }
+    .auth-page button, .auth-page .auth-btn { min-height: 44px; }
+    .auth-modal { padding: 1.25rem; overflow-wrap: anywhere; }
+}
