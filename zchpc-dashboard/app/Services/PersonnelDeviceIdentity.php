@@ -65,6 +65,6 @@ class PersonnelDeviceIdentity
                 'Linked an operator-confirmed additional device identity to existing personnel.',
                 ['device_employee_no' => $employeeNo, 'employee_id' => $person->employee_id],
                 personnel: $person, terminal: $terminal);
-        });
+        }, 5);
     }
 }
