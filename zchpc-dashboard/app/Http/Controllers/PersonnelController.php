@@ -10,6 +10,7 @@ use App\Rules\PersonnelRules;
 use App\Services\AccessAuditLogger;
 use App\Services\DeviceActivityLogger;
 use App\Services\PendingTerminalSyncService;
+use App\Services\PersonnelDeviceIdentity;
 use App\Support\PersonnelListState;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -563,7 +564,10 @@ class PersonnelController extends Controller
             foreach ($service->all(pageSize: 30) as $person) {
                 /** @var Person $person */
                 try {
-                    $existing = Personnel::withTrashed()->where('employee_no', $person->employeeNo)->first();
+                    if (PersonnelDeviceIdentity::excluded($terminal, $person->employeeNo)) {
+                        continue;
+                    }
+                    $existing = PersonnelDeviceIdentity::resolve($terminal, $person->employeeNo);
                     if ($existing?->trashed()) {
                         $existing->terminals()->syncWithoutDetaching([$terminal->id => ['access_allowed' => false, 'sync_status' => 'pending']]);
                         $this->pendingSyncs->queue($existing, $terminal, 'Removed identity found during import.');
@@ -628,7 +632,10 @@ class PersonnelController extends Controller
                 $count = 0;
 
                 foreach ($service->all(pageSize: 30) as $person) {
-                    $existing = Personnel::withTrashed()->where('employee_no', $person->employeeNo)->first();
+                    if (PersonnelDeviceIdentity::excluded($terminal, $person->employeeNo)) {
+                        continue;
+                    }
+                    $existing = PersonnelDeviceIdentity::resolve($terminal, $person->employeeNo);
                     if ($existing?->trashed()) {
                         $existing->terminals()->syncWithoutDetaching([$terminal->id => ['access_allowed' => false, 'sync_status' => 'pending']]);
                         $this->pendingSyncs->queue($existing, $terminal, 'Removed identity found during import.');

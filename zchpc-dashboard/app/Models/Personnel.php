@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class Personnel extends Model
 {
@@ -59,6 +61,9 @@ class Personnel extends Model
     protected function performInsert(Builder $query)
     {
         return $this->getConnection()->transaction(function () use ($query) {
+            if (DB::table('personnel_device_aliases')->where('employee_no', $this->employee_no)->exists()) {
+                throw ValidationException::withMessages(['employee_no' => 'This device identity is already linked to existing personnel.']);
+            }
             $this->personnel_code = PersonnelNumbering::allocate();
             if ($this->employee_no === '__AUTO__') {
                 $this->employee_no = $this->personnel_code;

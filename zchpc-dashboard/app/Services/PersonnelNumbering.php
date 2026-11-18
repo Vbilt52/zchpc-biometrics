@@ -16,7 +16,8 @@ class PersonnelNumbering
         $number = (int) DB::table('personnel_number_sequences')->where('id', 1)->value('last_number');
         do {
             $code = self::format(++$number);
-        } while (DB::table('personnel')->where('employee_no', $code)->orWhere('personnel_code', $code)->exists());
+        } while (DB::table('personnel')->where('employee_no', $code)->orWhere('personnel_code', $code)->exists()
+            || DB::table('personnel_device_aliases')->where('employee_no', $code)->exists());
 
         return $code;
     }
@@ -27,7 +28,8 @@ class PersonnelNumbering
         do {
             DB::table('personnel_number_sequences')->where('id', 1)->increment('last_number');
             $code = self::format((int) DB::table('personnel_number_sequences')->where('id', 1)->value('last_number'));
-        } while (DB::table('personnel')->where('employee_no', $code)->orWhere('personnel_code', $code)->exists());
+        } while (DB::table('personnel')->where('employee_no', $code)->orWhere('personnel_code', $code)->exists()
+            || DB::table('personnel_device_aliases')->where('employee_no', $code)->exists());
 
         return $code;
     }

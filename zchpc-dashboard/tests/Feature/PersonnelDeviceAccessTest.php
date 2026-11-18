@@ -8,6 +8,7 @@ use App\Models\Personnel;
 use App\Models\Terminal;
 use App\Models\User;
 use App\Services\PendingTerminalSyncService;
+use App\Services\PersonnelDeviceIdentity;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Shaykhnazar\HikvisionIsapi\Client\DeviceManager;
@@ -75,6 +76,26 @@ class PersonnelDeviceAccessTest extends TestCase
             'phone_number' => '0771234567', 'door_right' => '1', 'terminal_ids' => $ids];
     }
 
+    public function test_revocation_updates_all_confirmed_aliases_without_changing_their_fingerprints(): void
+    {
+        $person = $this->person();
+        $terminal = $this->terminal('Main');
+        $person->terminals()->attach($terminal->id, ['access_allowed' => true]);
+        PersonnelDeviceIdentity::link($person, $terminal, '189');
+        PersonnelDeviceIdentity::link($person, $terminal, '190');
+        foreach (['0007', '189', '190'] as $number) {
+            $this->deviceRecords[$terminal->id][$number] = ['employeeNo' => $number, 'name' => 'Prince', 'userType' => 'normal', 'numOfFP' => 2];
+        }
+        $this->connect([$terminal]);
+        app(PendingTerminalSyncService::class)->save($person, [], []);
+        foreach ($this->deviceRecords[$terminal->id] as $record) {
+            $this->assertSame('blackList', $record['userType']);
+            $this->assertSame(2, $record['numOfFP']);
+        }
+        $this->assertDatabaseCount('pending_terminal_syncs', 0);
+        $this->assertSame('0007', $person->fresh()->employee_no);
+    }
+
     public function test_editing_four_device_assignments_updates_fields_and_revokes_unselected_devices(): void
     {
         $person = $this->person();
@@ -139,6 +160,37 @@ class PersonnelDeviceAccessTest extends TestCase
         $this->assertSame(['synced' => 1, 'pending' => 0], (new PendingTerminalSyncService($newManager))->processDue());
         $this->assertDatabaseCount('pending_terminal_syncs', 0);
         $this->assertSoftDeleted('personnel', ['id' => $person->id]);
+    }
+
+    public function test_removal_retries_all_aliases_and_only_finishes_after_each_is_absent(): void
+    {
+        $person = $this->person();
+        $terminal = $this->terminal('Main');
+        PersonnelDeviceIdentity::link($person, $terminal, '189');
+        // Alias discovery must schedule removal even without a legacy assignment.
+        $records = ['0007' => ['employeeNo' => '0007'], '189' => ['employeeNo' => '189']];
+        $client = Mockery::mock(HikvisionClient::class);
+        $client->shouldReceive('post')->with('/ISAPI/AccessControl/UserInfo/Search', Mockery::type('array'))
+            ->andReturnUsing(function ($path, $payload) use (&$records) {
+                $number = $payload['UserInfoSearchCond']['EmployeeNoList'][0]['employeeNo'];
+
+                return ['UserInfoSearch' => ['responseStatusStrg' => isset($records[$number]) ? 'OK' : 'NO MATCH', 'UserInfo' => isset($records[$number]) ? [$records[$number]] : []]];
+            });
+        $client->shouldReceive('put')->with('/ISAPI/AccessControl/UserInfo/Delete', Mockery::type('array'))->twice()
+            ->andReturnUsing(function ($path, $payload) use (&$records) {
+                unset($records[$payload['UserInfoDelCond']['EmployeeNoList'][0]['employeeNo']]);
+
+                return ['statusCode' => 1];
+            });
+        $manager = Mockery::mock(DeviceManager::class);
+        $manager->shouldReceive('device')->andReturn($client);
+        $service = new PendingTerminalSyncService($manager);
+        $service->remove($person);
+        $this->assertSoftDeleted('personnel', ['id' => $person->id]);
+        $this->assertDatabaseCount('pending_terminal_syncs', 1);
+        PendingTerminalSync::query()->update(['next_attempt_at' => now()->subMinute()]);
+        $this->assertSame(['synced' => 1, 'pending' => 0], $service->processDue());
+        $this->assertSame([], $records);
     }
 
     public function test_deletion_is_not_confirmed_when_the_device_retains_the_person(): void
