@@ -9,6 +9,7 @@ use App\Services\EloquentDeviceProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Shaykhnazar\HikvisionIsapi\Client\DeviceManager;
 
@@ -105,6 +106,11 @@ class TerminalController extends Controller
         if (AccessEvent::where('terminal_id', $terminal->id)->exists()
             || AttendanceCheckout::where('terminal_id', $terminal->id)->exists()) {
             return redirect()->route('terminals.index')->with('error', 'This terminal has historical access or attendance records and cannot be deleted.');
+        }
+
+        if (DB::table('personnel_device_aliases')->where('terminal_id', $terminal->id)->exists()
+            || DB::table('personnel_device_exclusions')->where('terminal_id', $terminal->id)->exists()) {
+            return redirect()->route('terminals.index')->with('error', 'This terminal has reviewed identity links or import exclusions. Reconcile these before deleting it.');
         }
 
         $terminal->delete();

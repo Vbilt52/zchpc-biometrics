@@ -14,7 +14,7 @@ class PersonnelRules
     public static function employeeNo(?int $ignoreId = null): array
     {
         // Archived identities remain reserved to protect device credentials and history.
-        return ['required', 'string', 'max:32', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('personnel', 'employee_no')->ignore($ignoreId)];
+        return ['required', 'string', 'max:32', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('personnel', 'employee_no')->ignore($ignoreId), Rule::unique('personnel_device_aliases', 'employee_no')];
     }
 
     public static function phone(): array

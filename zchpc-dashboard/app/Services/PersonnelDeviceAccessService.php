@@ -180,6 +180,7 @@ class PersonnelDeviceAccessService
             ->merge($person->fingerprintEnrollments->pluck('terminal_id'))
             ->merge($person->doors->pluck('terminal_id'))
             ->merge($person->pendingSyncs->pluck('terminal_id'))
+            ->merge(DB::table('personnel_device_aliases')->where('personnel_id', $person->id)->pluck('terminal_id'))
             ->filter()->unique()->values()->all();
     }
 
@@ -315,6 +316,15 @@ class PersonnelDeviceAccessService
 
     private function writeCurrentAssignment(Personnel $personnel, Terminal $terminal): void
     {
+        foreach (PersonnelDeviceIdentity::numbers($personnel, $terminal) as $number) {
+            $identity = clone $personnel;
+            $identity->employee_no = $number;
+            $this->writeSingleAssignment($identity, $terminal);
+        }
+    }
+
+    private function writeSingleAssignment(Personnel $personnel, Terminal $terminal): void
+    {
         $this->assertNotRemoved($personnel);
         if (! $terminal->supports('personnel_sync')) {
             throw new \RuntimeException('This terminal does not support personnel synchronization.');
@@ -431,6 +441,15 @@ class PersonnelDeviceAccessService
 
     private function removeFromDevice(Personnel $person, Terminal $terminal): void
     {
+        foreach (PersonnelDeviceIdentity::numbers($person, $terminal) as $number) {
+            $identity = clone $person;
+            $identity->employee_no = $number;
+            $this->removeSingleIdentity($identity, $terminal);
+        }
+    }
+
+    private function removeSingleIdentity(Personnel $person, Terminal $terminal): void
+    {
         $client = $this->deviceManager->device($terminal->name);
         if ($this->readPerson($client, $person->employee_no) === null) {
             return;
@@ -444,6 +463,15 @@ class PersonnelDeviceAccessService
     }
 
     private function writeName(Personnel $person, Terminal $terminal): void
+    {
+        foreach (PersonnelDeviceIdentity::numbers($person, $terminal) as $number) {
+            $identity = clone $person;
+            $identity->employee_no = $number;
+            $this->writeSingleName($identity, $terminal);
+        }
+    }
+
+    private function writeSingleName(Personnel $person, Terminal $terminal): void
     {
         $client = $this->deviceManager->device($terminal->name);
         if ($this->readPerson($client, $person->employee_no) === null) {

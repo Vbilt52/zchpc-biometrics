@@ -24,6 +24,7 @@ class EventImportService
         $updated = 0;
         $processed = 0;
         $truncated = false;
+        $identities = PersonnelDeviceIdentity::map($terminal);
 
         foreach ($this->events($terminal, $from, $to) as $event) {
             if ($processed >= self::MAX_EVENTS_PER_IMPORT) {
@@ -33,6 +34,7 @@ class EventImportService
 
             $processed++;
             $employeeNo = $this->eventValue($event, ['employeeNoString', 'employeeNo']);
+            $employeeNo = $identities[$employeeNo] ?? $employeeNo;
             $personName = $this->eventValue($event, ['name', 'employeeName'])
                 ?? ($employeeNo !== null ? ($namesByEmployeeNo[$employeeNo] ?? null) : null);
 
