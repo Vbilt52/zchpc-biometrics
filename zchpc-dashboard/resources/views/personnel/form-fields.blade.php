@@ -67,7 +67,7 @@
 </div>
 @endcan
 <style>
-    .person-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1rem; margin-top:1rem; }
+    .person-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(240px, 100%), 1fr)); gap:1rem; margin-top:1rem; }
     .person-fields label, details > label { display:block; font-size:.85rem; font-weight:600; margin-bottom:.35rem; }
     .person-fields input:not([type=checkbox]), .person-fields select, #door-right { width:100%; padding:.7rem; border:1px solid var(--zchpc-border); border-radius:.5rem; font:inherit; background:white; }
     .person-fields small { display:block; color:var(--zchpc-text-muted); font-size:.75rem; margin-top:.3rem; }

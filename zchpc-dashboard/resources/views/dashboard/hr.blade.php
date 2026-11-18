@@ -26,7 +26,7 @@
     </div>
 
     <!-- HR KPI Grid -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:1rem;margin-bottom:1.5rem;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(min(200px, 100%), 1fr));gap:1rem;margin-bottom:1.5rem;">
         <div style="background:#ffffff;border-radius:0.75rem;padding:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.07);border:1px solid #e2e8f0;">
             <div style="font-size:0.8rem;text-transform:uppercase;color:#64748b;font-weight:600;">Registered Personnel</div>
             <div style="font-size:1.8rem;font-weight:800;color:#0f172a;margin-top:0.25rem;">{{ $totalPersonnel }}</div>
@@ -53,7 +53,7 @@
     </div>
 
     <!-- 2-Column Section -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
+    <div class="responsive-pair" style="display:grid;gap:1.5rem;">
         <!-- Left: Today's Sign-ins / Clock-ins -->
         <div style="background:#ffffff;border-radius:0.75rem;box-shadow:0 1px 3px rgba(0,0,0,0.07);border:1px solid #e2e8f0;overflow:hidden;">
             <div style="padding:1.25rem;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;">

@@ -49,7 +49,7 @@
         </div>
     </div>
     <div style="padding:1.25rem;">
-        <form id="event-filter-form" method="GET" action="{{ route('events.index') }}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.85rem;align-items:end;">
+        <form id="event-filter-form" method="GET" action="{{ route('events.index') }}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px, 100%), 1fr));gap:.85rem;align-items:end;">
             <div><label for="event-outcome" style="display:block;font-size:.78rem;font-weight:600;margin-bottom:.35rem;">RESULT</label>
                 <select id="event-outcome" name="outcome" style="width:100%;padding:.6rem;border:1px solid var(--zchpc-border);border-radius:.5rem;">
                     <option value="all" @selected($filters['outcome'] === 'all')>All events</option>

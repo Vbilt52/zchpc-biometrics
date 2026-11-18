@@ -72,7 +72,7 @@
             @csrf
             @method('PUT')
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem;">
+            <div class="responsive-pair" style="display:grid;gap:1.25rem;margin-bottom:1.25rem;">
                 <div>
                     <label style="display:block;font-weight:600;font-size:0.875rem;color:#334155;margin-bottom:0.4rem;">
                         Full Name <span style="color:#dc2626;">*</span>
@@ -88,7 +88,7 @@
                 </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem;">
+            <div class="responsive-pair" style="display:grid;gap:1.25rem;margin-bottom:1.5rem;">
                 <div>
                     <label style="display:block;font-weight:600;font-size:0.875rem;color:#334155;margin-bottom:0.4rem;">
                         Email Address <span style="color:#dc2626;">*</span>
@@ -128,7 +128,7 @@
                 <label style="display:block;font-weight:700;font-size:0.9rem;color:#0f172a;margin-bottom:0.4rem;">
                     Optional Role-Specific Permissions
                 </label>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+                <div class="responsive-pair" style="display:grid;gap:0.5rem;">
                     @php
                         $userPerms = is_array($user->permissions) ? $user->permissions : [];
                     @endphp
