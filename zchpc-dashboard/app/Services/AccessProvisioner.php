@@ -32,6 +32,7 @@ class AccessProvisioner
      */
     public function ensureEnrollmentIdentity(Terminal $terminal, string $employeeNo, string $name, ?string $phone = null): void
     {
+        PersonnelDeviceIdentity::assertWritable($terminal, $employeeNo);
         $client = $this->deviceManager->device($terminal->name);
         $existing = $this->readPerson($client, $employeeNo);
 

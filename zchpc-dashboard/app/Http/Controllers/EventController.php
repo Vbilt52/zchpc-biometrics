@@ -181,7 +181,7 @@ class EventController extends Controller
         $rows = $this->reportEvents($filters)->map(fn (AccessEvent $event) => [
             app(AttendanceRegisterService::class)->eventTime($event)?->format('Y-m-d H:i:s') ?? 'Unknown',
             $event->terminal?->name ?? 'Removed terminal', $event->entranceLabel(),
-            $event->displayName(), $event->personnel?->employee_id ?? $event->employee_no ?? '', $event->methodLabel(),
+            $event->displayName(), $event->employeeLabel(), $event->methodLabel(),
             $event->outcomeLabel(), $event->directionLabel(),
         ]);
 

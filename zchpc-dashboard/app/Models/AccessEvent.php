@@ -68,6 +68,15 @@ class AccessEvent extends Model
         return $this->personnel?->name ?: ($this->person_name ?: 'Unknown person');
     }
 
+    public function employeeLabel(): string
+    {
+        if (str_starts_with((string) $this->employee_no, 'unresolved:')) {
+            return 'Device ID '.explode(':', $this->employee_no, 3)[2].' · identity unconfirmed';
+        }
+
+        return $this->personnel?->employee_id ?? $this->employee_no ?? '';
+    }
+
     public function entranceLabel(): string
     {
         $number = $this->raw_payload['doorNo'] ?? null;

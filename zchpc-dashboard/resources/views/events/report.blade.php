@@ -39,7 +39,7 @@
                     <td>{{ $event->terminal?->name ?? 'Removed terminal' }}</td>
                     <td>{{ $event->entranceLabel() }}</td>
                     <td>{{ $event->displayName() }}</td>
-                    <td>{{ ($event->personnel?->employee_id ?? $event->employee_no) ?? '—' }}</td>
+                    <td>{{ $event->employeeLabel() ?: '—' }}</td>
                     <td>{{ $event->methodLabel() }}</td>
                     <td class="{{ strtolower($outcome) }}">{{ $outcome }}</td>
                     <td>{{ $event->directionLabel() }}</td>
