@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\DeviceAlert;
 use App\Models\User;
 use App\Services\EloquentDeviceProvider;
+use App\Services\GuardedDeviceHttpClient;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Shaykhnazar\HikvisionIsapi\Client\Contracts\HttpClientInterface;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -20,6 +22,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->extend(HttpClientInterface::class,
+            fn ($client) => new GuardedDeviceHttpClient($client));
         // Bind our Eloquent-backed provider as the singleton that the package
         // resolves under the 'hikvision.device.provider' key.
         // Using Eloquent (instead of DB::table) ensures the 'encrypted' cast

@@ -21,7 +21,9 @@ class DeviceErrorInterpreter
         if ($error instanceof AuthenticationException) {
             return [
                 'category' => 'auth',
-                'message' => 'The device answered but rejected its saved credentials. Update the device username and password in Terminals; retrying will not help until they are corrected.',
+                'message' => str_starts_with($error->getMessage(), 'The terminal API account is temporarily locked.')
+                    ? $error->getMessage()
+                    : 'The device answered but rejected its saved credentials. Update the device username and password in Terminals; retrying will not help until they are corrected.',
                 'retryable' => false,
                 'http_status' => 401,
             ];
