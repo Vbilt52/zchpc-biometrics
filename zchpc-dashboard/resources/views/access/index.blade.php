@@ -167,10 +167,17 @@
                     </td>
                     <td>{{ $person->accessGroup?->name ?? $person->department ?? '—' }}</td>
                     <td>
-                        @if($person->confirmed_fingerprints_count > 0)
-                            <span class="badge badge-success"><i class="fa-solid fa-fingerprint"></i> {{ $person->confirmed_fingerprints_count }}</span>
+                        @php
+                            $fingerprintSlots = $person->fingerprintInventories->sum(fn ($inventory) => count($inventory->slotNumbers()));
+                            $fingerprintDoors = $person->fingerprintInventories->filter(fn ($inventory) => $inventory->slotNumbers() !== []);
+                        @endphp
+                        @if($fingerprintSlots > 0)
+                            <span class="badge badge-success"><i class="fa-solid fa-fingerprint"></i> {{ $fingerprintSlots }} slot{{ $fingerprintSlots === 1 ? '' : 's' }}</span>
+                            <div class="hint" style="margin-top:.25rem;font-size:.7rem;">{{ $fingerprintDoors->map(fn ($inventory) => $inventory->terminal?->name)->filter()->implode(', ') }}</div>
+                        @elseif($person->fingerprintInventories->isNotEmpty())
+                            <span class="badge badge-muted">None enrolled</span>
                         @else
-                            <span class="badge badge-muted">Not enrolled</span>
+                            <span class="badge badge-muted">Not checked yet</span>
                         @endif
                     </td>
                     <td>

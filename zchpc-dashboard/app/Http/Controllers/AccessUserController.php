@@ -7,6 +7,7 @@ use App\Models\AccessEvent;
 use App\Models\AccessGroup;
 use App\Models\Door;
 use App\Models\FingerprintEnrollment;
+use App\Models\FingerprintInventory;
 use App\Models\PendingTerminalSync;
 use App\Models\Personnel;
 use App\Models\Terminal;
@@ -62,9 +63,9 @@ class AccessUserController extends Controller
             'stats' => [
                 'people' => Personnel::query()->onboarded()->count(),
                 'drafts' => Personnel::query()->where('status', Personnel::STATUS_DRAFT)->count(),
-                'fingerprints' => FingerprintEnrollment::query()
-                    ->where('status', FingerprintEnrollment::STATUS_CONFIRMED)
-                    ->whereNotNull('personnel_id')->distinct()->count('personnel_id'),
+                'fingerprints' => FingerprintInventory::query()->get(['personnel_id', 'slots'])
+                    ->filter(fn (FingerprintInventory $inventory) => $inventory->slotNumbers() !== [])
+                    ->pluck('personnel_id')->unique()->count(),
                 'doors' => Door::query()->active()->count(),
                 'pending' => PendingTerminalSync::query()->count(),
                 'denied_today' => AccessEvent::query()->failedAttempt()
@@ -269,7 +270,7 @@ class AccessUserController extends Controller
 
         $query = Personnel::query()
             ->onboarded()
-            ->with(['accessGroup', 'terminals'])
+            ->with(['accessGroup', 'terminals', 'fingerprintInventories.terminal'])
             ->withCount([
                 'doors as granted_doors_count' => fn ($query) => $query
                     ->where('doors.is_active', true)
@@ -338,7 +339,7 @@ class AccessUserController extends Controller
     {
         Gate::authorize('access.view');
 
-        $personnel->load(['accessGroup', 'terminals', 'doors', 'pendingSyncs', 'fingerprintEnrollments', 'syncEvents']);
+        $personnel->load(['accessGroup', 'terminals', 'doors', 'pendingSyncs', 'fingerprintEnrollments', 'fingerprintInventories.terminal', 'syncEvents']);
 
         $grantedDoors = $personnel->doors()
             ->with('terminal')
