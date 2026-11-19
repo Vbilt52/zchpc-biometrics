@@ -106,6 +106,22 @@ class FingerprintSyncService
             }
             $templates = $this->templates($sourceClient, $task->source_employee_no);
             if ($templates === []) {
+                foreach (PersonnelDeviceIdentity::numbers($person, $source) as $number) {
+                    if ($number === $task->source_employee_no) {
+                        continue;
+                    }
+                    $profile = $this->profiles->readPerson($sourceClient, $number);
+                    if (($profile['name'] ?? null) !== $person->name) {
+                        continue;
+                    }
+                    $templates = $this->templates($sourceClient, $number);
+                    if ($templates !== []) {
+                        $this->persist($task, ['source_employee_no' => $number]);
+                        break;
+                    }
+                }
+            }
+            if ($templates === []) {
                 throw new \DomainException('No exportable fingerprint is enrolled on the source identity.');
             }
             $existing = $this->templates($targetClient, $task->target_employee_no);
@@ -143,18 +159,37 @@ class FingerprintSyncService
                     'fingerPrintID' => $targetSlot, 'fingerType' => 'normalFP', 'fingerData' => $data,
                 ]]);
                 $statuses = $response['FingerPrintStatus']['StatusList'] ?? [];
+                $alreadyOwned = false;
                 foreach ($statuses as $status) {
+                    $reportedOwner = (string) ($status['errorMsg'] ?? '');
+                    if ((int) ($status['cardReaderRecvStatus'] ?? -1) === 5 && $reportedOwner === $task->target_employee_no) {
+                        $alreadyOwned = true;
+
+                        continue;
+                    }
                     if (($status['cardReaderRecvStatus'] ?? null) != 1) {
                         throw new \DomainException(match ((int) ($status['cardReaderRecvStatus'] ?? -1)) {
                             2 => 'The destination fingerprint reader is offline. Synchronization will retry.',
                             4 => 'The destination fingerprint memory is full. Review its stored enrollments.',
-                            5 => 'This fingerprint already belongs to a device identity. Review the existing enrollment; no identity was removed.',
+                            5 => 'This fingerprint already belongs to '.(preg_match('/^[A-Za-z0-9._-]{1,32}$/D', $reportedOwner) ? 'device ID '.$reportedOwner : 'another device identity').'. Review the existing enrollment; no identity was removed.',
                             default => 'The destination rejected the fingerprint. Existing identities and fingerprints were retained.',
                         });
                     }
                 }
                 $readback = $this->templates($targetClient, $task->target_employee_no);
-                if (! isset($readback[$targetSlot]) || ! hash_equals($data, $readback[$targetSlot])) {
+                if ($alreadyOwned) {
+                    if ($readback === []) {
+                        throw new \DomainException('The reader reported an existing fingerprint but its storage could not be read back.');
+                    }
+                    $confirmedSlots = array_merge($confirmedSlots, array_keys($readback));
+                    $existing = $readback;
+
+                    continue;
+                }
+                // A successful reader receipt plus a newly occupied slot
+                // confirms storage even when firmware normalizes opaque bytes.
+                // A request-level acknowledgement alone still requires a match.
+                if (! isset($readback[$targetSlot]) || ($statuses === [] && ! hash_equals($data, $readback[$targetSlot]))) {
                     throw new \DomainException('Destination fingerprint storage has not been confirmed.');
                 }
                 foreach ($existing as $storedSlot => $storedData) {

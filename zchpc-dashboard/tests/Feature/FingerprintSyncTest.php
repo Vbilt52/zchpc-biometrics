@@ -34,12 +34,19 @@ class FingerprintSyncTest extends TestCase
         return [$person, $source, $target, $task];
     }
 
-    private function mockClients(Personnel $person): array
+    private function mockClients(Personnel $person, array $sourceAliases = []): array
     {
         $source = \Mockery::mock(HikvisionClient::class);
         $target = \Mockery::mock(HikvisionClient::class);
         foreach ([[$source, '190'], [$target, $person->employee_no]] as [$client, $number]) {
-            $client->shouldReceive('post')->with('/ISAPI/AccessControl/UserInfo/Search', \Mockery::any())->andReturn(['UserInfoSearch' => ['responseStatusStrg' => 'OK', 'UserInfo' => [['employeeNo' => $number, 'name' => $person->name, 'userType' => 'normal']]]]);
+            $known = array_merge([$number], $client === $source ? $sourceAliases : []);
+            $client->shouldReceive('post')->with('/ISAPI/AccessControl/UserInfo/Search', \Mockery::any())->andReturnUsing(function ($path, $payload) use ($known, $person) {
+                $number = $payload['UserInfoSearchCond']['EmployeeNoList'][0]['employeeNo'];
+
+                return in_array($number, $known, true)
+                    ? ['UserInfoSearch' => ['responseStatusStrg' => 'OK', 'UserInfo' => [['employeeNo' => $number, 'name' => $person->name, 'userType' => 'normal']]]]
+                    : ['UserInfoSearch' => ['responseStatusStrg' => 'NO MATCH', 'UserInfo' => []]];
+            });
         }
         $factory = \Mockery::mock(DeviceClientFactory::class);
         $factory->shouldReceive('forTerminal')->with(\Mockery::on(fn ($t) => $t->name === 'Source'), 8)->andReturn($source);
@@ -178,5 +185,54 @@ class FingerprintSyncTest extends TestCase
         } finally {
             $lock->release();
         }
+    }
+
+    public function test_reader_success_and_a_new_readback_slot_allow_firmware_normalization(): void
+    {
+        [$person, , , $task] = $this->setupTransfer();
+        [$source, $target] = $this->mockClients($person);
+        $source->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->andReturn($this->templates());
+        $target->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->twice()->andReturn(['FingerPrintInfo' => ['status' => 'NoFP']], $this->templates(base64_encode('normalized-storage')));
+        $target->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrint/SetUp', \Mockery::any())->andReturn(['FingerPrintStatus' => ['StatusList' => [['cardReaderRecvStatus' => 1]]]]);
+        $this->assertSame(1, app(FingerprintSyncService::class)->processDue()['confirmed']);
+        $this->assertSame([5], $task->fresh()->confirmed_slots);
+    }
+
+    public function test_duplicate_report_for_the_same_identity_can_confirm_its_existing_storage(): void
+    {
+        [$person, , , $task] = $this->setupTransfer();
+        [$source, $target] = $this->mockClients($person);
+        $source->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->andReturn($this->templates());
+        $stored = $this->templates(base64_encode('normalized-storage'));
+        $stored['FingerPrintInfo']['FingerPrintList'][0]['fingerPrintID'] = 3;
+        $target->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->twice()->andReturn($stored);
+        $target->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrint/SetUp', \Mockery::any())->andReturn(['FingerPrintStatus' => ['StatusList' => [['cardReaderRecvStatus' => 5, 'errorMsg' => $person->employee_no]]]]);
+        $this->assertSame(1, app(FingerprintSyncService::class)->processDue()['confirmed']);
+        $this->assertSame([3], $task->fresh()->confirmed_slots);
+    }
+
+    public function test_duplicate_report_for_another_identity_is_never_confirmed(): void
+    {
+        [$person, , , $task] = $this->setupTransfer();
+        [$source, $target] = $this->mockClients($person);
+        $source->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->andReturn($this->templates());
+        $target->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->once()->andReturn(['FingerPrintInfo' => ['status' => 'NoFP']]);
+        $target->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrint/SetUp', \Mockery::any())->andReturn(['FingerPrintStatus' => ['StatusList' => [['cardReaderRecvStatus' => 5, 'errorMsg' => 'OTHER123']]]]);
+        $this->assertSame(1, app(FingerprintSyncService::class)->processDue()['pending']);
+        $this->assertStringContainsString('device ID OTHER123', $task->fresh()->message);
+        $this->assertNull($task->fresh()->confirmed_at);
+    }
+
+    public function test_empty_source_can_use_an_explicitly_linked_alias_with_the_same_name(): void
+    {
+        [$person, $sourceTerminal, , $task] = $this->setupTransfer();
+        PersonnelDeviceIdentity::link($person, $sourceTerminal, '191');
+        [$source, $target] = $this->mockClients($person, ['191']);
+        $source->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::on(fn ($p) => $p['FingerPrintCond']['employeeNo'] === '190'))->andReturn(['FingerPrintInfo' => ['status' => 'NoFP']]);
+        $source->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::on(fn ($p) => $p['FingerPrintCond']['employeeNo'] === '191'))->andReturn($this->templates());
+        $target->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->andReturn($this->templates());
+        $target->shouldNotReceive('post')->with('/ISAPI/AccessControl/FingerPrint/SetUp', \Mockery::any());
+        $this->assertSame(1, app(FingerprintSyncService::class)->processDue()['confirmed']);
+        $this->assertSame('191', $task->fresh()->source_employee_no);
     }
 }
