@@ -37,4 +37,22 @@ class DeviceAuthenticationCooldownTest extends TestCase
     {
         $this->assertInstanceOf(GuardedDeviceHttpClient::class, app(HttpClientInterface::class));
     }
+
+    public function test_empty_json_auth_failure_reads_xml_lock_status_without_replaying_the_write(): void
+    {
+        Cache::flush();
+        $inner = \Mockery::mock(HttpClientInterface::class);
+        $inner->shouldReceive('post')->once()->andThrow(new AuthenticationException('Unauthorized', statusCode: 401));
+        $inner->shouldReceive('get')->once()->with('http://192.0.2.1:80/ISAPI/System/deviceInfo', \Mockery::on(fn ($options) => $options['http_errors'] === false))
+            ->andReturn(['lockStatus' => 'lock', 'unlockTime' => 300]);
+        $client = new GuardedDeviceHttpClient($inner);
+        for ($i = 0; $i < 2; $i++) {
+            try {
+                $client->post('http://192.0.2.1/update?format=json');
+                $this->fail('Expected lockout');
+            } catch (AuthenticationException $error) {
+                $this->assertStringContainsString('temporarily locked', $error->getMessage());
+            }
+        }
+    }
 }
