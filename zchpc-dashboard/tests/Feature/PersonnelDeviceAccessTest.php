@@ -36,7 +36,7 @@ class PersonnelDeviceAccessTest extends TestCase
         return Terminal::create(['name' => $name, 'phase' => 'Phase 1', 'ip' => '192.0.2.1', 'username' => 'admin', 'password' => 'test']);
     }
 
-    private function connect(array $terminals, bool $reject = false, bool $stale = false): void
+    private function connect(array $terminals, bool $reject = false, bool $stale = false, bool $omitPhone = false): void
     {
         $manager = Mockery::mock(DeviceManager::class);
         foreach ($terminals as $terminal) {
@@ -51,7 +51,7 @@ class PersonnelDeviceAccessTest extends TestCase
                         'totalMatches' => $record ? 1 : 0, 'UserInfo' => $record ? [$record] : []]];
                 });
             foreach (['put' => '/ISAPI/AccessControl/UserInfo/Modify', 'post' => '/ISAPI/AccessControl/UserInfo/Record'] as $method => $path) {
-                $client->shouldReceive($method)->with($path, Mockery::type('array'))->andReturnUsing(function ($path, $payload) use ($terminal, $reject, $stale) {
+                $client->shouldReceive($method)->with($path, Mockery::type('array'))->andReturnUsing(function ($path, $payload) use ($terminal, $reject, $stale, $omitPhone) {
                     $this->writes[] = ['terminal' => $terminal->id, 'data' => $payload['UserInfo']];
                     if ($reject) {
                         return ['statusCode' => 6, 'subStatusCode' => 'Invalid Content'];
@@ -59,6 +59,9 @@ class PersonnelDeviceAccessTest extends TestCase
                     if (! $stale) {
                         $id = $payload['UserInfo']['employeeNo'];
                         $this->deviceRecords[$terminal->id][$id] = array_replace_recursive($this->deviceRecords[$terminal->id][$id] ?? [], $payload['UserInfo']);
+                        if ($omitPhone) {
+                            unset($this->deviceRecords[$terminal->id][$id]['phoneNumber']);
+                        }
                     }
 
                     return ['statusCode' => 1, 'statusString' => 'OK'];
@@ -74,6 +77,18 @@ class PersonnelDeviceAccessTest extends TestCase
             'valid_enabled' => '1', 'begin_time' => '2026-10-01T08:00', 'end_time' => '2027-10-01T18:00',
             'added_at' => '2026-09-01T09:00', 'access_group_id' => $person->access_group_id,
             'phone_number' => '0771234567', 'door_right' => '1', 'terminal_ids' => $ids];
+    }
+
+    public function test_terminal_without_contact_field_can_confirm_access_and_retains_local_phone(): void
+    {
+        $person = $this->person();
+        $terminal = $this->terminal('No Contact Field');
+        $person->terminals()->attach($terminal->id, ['access_allowed' => true]);
+        $this->connect([$terminal], omitPhone: true);
+        $result = app(PendingTerminalSyncService::class)->save($person, ['phone_number' => '0771234567'], [$terminal->id]);
+        $this->assertSame(['synced' => 1, 'pending' => 0], $result);
+        $this->assertSame('0771234567', $person->fresh()->phone_number);
+        $this->assertArrayNotHasKey('phoneNumber', $this->deviceRecords[$terminal->id][$person->employee_no]);
     }
 
     public function test_revocation_updates_all_confirmed_aliases_without_changing_their_fingerprints(): void

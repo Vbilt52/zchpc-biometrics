@@ -410,10 +410,16 @@ class PersonnelDeviceAccessService
         if ($plans($actual['RightPlan'] ?? []) !== $plans($payload['RightPlan'])) {
             throw new \RuntimeException('Device has not confirmed the updated door access plan.');
         }
-        foreach (['name', 'doorRight', 'phoneNumber'] as $field) {
+        foreach (['name', 'doorRight'] as $field) {
             if ((string) ($actual[$field] ?? '') !== (string) $payload[$field]) {
                 throw new \RuntimeException('Device has not confirmed the updated '.$field.'.');
             }
+        }
+        // Some access terminals omit contact data entirely. Keep the local
+        // phone number without blocking verified door permissions on an
+        // unsupported optional field; verify it whenever the device reports it.
+        if (array_key_exists('phoneNumber', $actual) && (string) $actual['phoneNumber'] !== (string) $payload['phoneNumber']) {
+            throw new \RuntimeException('Device has not confirmed the updated phoneNumber.');
         }
         if (! filter_var($actual['Valid']['enable'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
             throw new \RuntimeException('Device has not enabled the requested access validity dates.');

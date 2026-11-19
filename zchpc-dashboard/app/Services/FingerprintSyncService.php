@@ -102,6 +102,7 @@ class FingerprintSyncService
                 throw new \DomainException('No exportable fingerprint is enrolled on the source identity.');
             }
             $existing = $this->templates($targetClient, $task->target_employee_no);
+            $confirmedSlots = [];
             foreach ($templates as $slot => $data) {
                 $person->refresh();
                 if (! $person->isActive() || ! $person->effectiveDoors()->contains('terminal_id', $target->id)
@@ -111,29 +112,53 @@ class FingerprintSyncService
                     return;
                 }
                 PersonnelDeviceIdentity::assertWritable($target, $task->target_employee_no);
-                if (isset($existing[$slot])) {
-                    if (! hash_equals($existing[$slot], $data)) {
-                        throw new \DomainException('A destination fingerprint slot already contains different data. Existing fingerprints were retained.');
+                $matchingSlot = null;
+                foreach ($existing as $storedSlot => $storedData) {
+                    if (hash_equals($storedData, $data)) {
+                        $matchingSlot = $storedSlot;
+                        break;
                     }
+                }
+                if ($matchingSlot !== null) {
+                    $confirmedSlots[] = $matchingSlot;
 
                     continue;
                 }
+                // Keep existing destination fingers when slot numbering differs.
+                $targetSlot = isset($existing[$slot]) ? (array_values(array_diff(range(1, 10), array_keys($existing)))[0] ?? null) : $slot;
+                if ($targetSlot === null) {
+                    throw new \DomainException('All destination fingerprint slots are occupied. Existing fingerprints were retained.');
+                }
                 $response = $targetClient->post('/ISAPI/AccessControl/FingerPrint/SetUp', ['FingerPrintCfg' => [
                     'employeeNo' => $task->target_employee_no, 'enableCardReader' => [1],
-                    'fingerPrintID' => $slot, 'fingerType' => 'normalFP', 'fingerData' => $data,
+                    // Copy the biometric for ordinary door access. Do not
+                    // propagate alarm-dismissal, duress or super-user rights.
+                    'fingerPrintID' => $targetSlot, 'fingerType' => 'normalFP', 'fingerData' => $data,
                 ]]);
                 $statuses = $response['FingerPrintStatus']['StatusList'] ?? [];
                 foreach ($statuses as $status) {
                     if (($status['cardReaderRecvStatus'] ?? null) != 1) {
-                        throw new \DomainException('The destination rejected the fingerprint. Existing identities and fingerprints were retained.');
+                        throw new \DomainException(match ((int) ($status['cardReaderRecvStatus'] ?? -1)) {
+                            2 => 'The destination fingerprint reader is offline. Synchronization will retry.',
+                            4 => 'The destination fingerprint memory is full. Review its stored enrollments.',
+                            5 => 'This fingerprint already belongs to a device identity. Review the existing enrollment; no identity was removed.',
+                            default => 'The destination rejected the fingerprint. Existing identities and fingerprints were retained.',
+                        });
                     }
                 }
                 $readback = $this->templates($targetClient, $task->target_employee_no);
-                if (! isset($readback[$slot]) || ! hash_equals($data, $readback[$slot])) {
+                if (! isset($readback[$targetSlot]) || ! hash_equals($data, $readback[$targetSlot])) {
                     throw new \DomainException('Destination fingerprint storage has not been confirmed.');
                 }
+                foreach ($existing as $storedSlot => $storedData) {
+                    if (! isset($readback[$storedSlot]) || ! hash_equals($storedData, $readback[$storedSlot])) {
+                        throw new \DomainException('An existing destination fingerprint changed during synchronization. Review the terminal.');
+                    }
+                }
+                $existing = $readback;
+                $confirmedSlots[] = $targetSlot;
             }
-            $slots = array_keys($templates);
+            $slots = array_values(array_unique($confirmedSlots));
             $task->update(['status' => 'confirmed', 'confirmed_slots' => $slots, 'confirmed_at' => now(),
                 'next_attempt_at' => null, 'message' => count($slots).' fingerprint slot(s) verified on the destination.']);
             app(AccessAuditLogger::class)->log('fingerprints_synchronized', 'success',
@@ -163,7 +188,11 @@ class FingerprintSyncService
             }
             throw new \DomainException('The terminal could not provide fingerprint data. Check connectivity and API access.');
         }
-        $list = $response['FingerPrintInfo']['FingerPrintList'] ?? null;
+        $info = $response['FingerPrintInfo'] ?? [];
+        if (($info['status'] ?? null) === 'NoFP' && empty($info['FingerPrintList'])) {
+            return [];
+        }
+        $list = $info['FingerPrintList'] ?? null;
         if (! is_array($list)) {
             throw new \DomainException('This terminal did not return a supported fingerprint export.');
         }
@@ -172,7 +201,8 @@ class FingerprintSyncService
             $slot = (int) ($item['fingerPrintID'] ?? 0);
             $data = $item['fingerData'] ?? null;
             if ($slot < 1 || $slot > 10 || ! is_string($data) || $data === '' || strlen($data) > 65536 || base64_decode($data, true) === false
-                || ($item['fingerType'] ?? 'normalFP') !== 'normalFP' || isset($templates[$slot])) {
+                || ! in_array($item['fingerType'] ?? 'normalFP', ['normalFP', 'hijackFP', 'patrolFP', 'superFP', 'dismissingFP'], true)
+                || isset($templates[$slot])) {
                 throw new \DomainException('The terminal returned an unsupported fingerprint template.');
             }
             $templates[$slot] = $data;

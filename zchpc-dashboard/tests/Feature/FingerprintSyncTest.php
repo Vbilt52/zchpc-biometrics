@@ -66,15 +66,20 @@ class FingerprintSyncTest extends TestCase
         $this->assertSame(['confirmed' => 0, 'pending' => 0, 'cancelled' => 0], app(FingerprintSyncService::class)->processDue());
     }
 
-    public function test_conflicting_destination_template_is_never_overwritten(): void
+    public function test_occupied_destination_slot_is_preserved_and_a_free_slot_is_used(): void
     {
         [$person, , , $task] = $this->setupTransfer();
         [$source, $target] = $this->mockClients($person);
         $source->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->andReturn($this->templates());
-        $target->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->andReturn($this->templates('ZGlmZmVyZW50'));
-        $target->shouldNotReceive('post')->with('/ISAPI/AccessControl/FingerPrint/SetUp', \Mockery::any());
-        $this->assertSame(1, app(FingerprintSyncService::class)->processDue()['pending']);
-        $this->assertStringContainsString('Existing fingerprints were retained', $task->fresh()->message);
+        $existing = $this->templates('ZGlmZmVyZW50');
+        $merged = $existing;
+        $newSlot = $this->templates()['FingerPrintInfo']['FingerPrintList'][0];
+        $newSlot['fingerPrintID'] = 1;
+        $merged['FingerPrintInfo']['FingerPrintList'][] = $newSlot;
+        $target->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->twice()->andReturn($existing, $merged);
+        $target->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrint/SetUp', \Mockery::on(fn ($payload) => $payload['FingerPrintCfg']['fingerPrintID'] === 1))->once()->andReturn(['statusCode' => 1]);
+        $this->assertSame(1, app(FingerprintSyncService::class)->processDue()['confirmed']);
+        $this->assertSame([1], $task->fresh()->confirmed_slots);
     }
 
     public function test_success_acknowledgement_without_template_readback_stays_pending(): void
@@ -108,5 +113,55 @@ class FingerprintSyncTest extends TestCase
         $source->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->andThrow(new \RuntimeException('sensitive-template-response'));
         $this->assertSame(1, app(FingerprintSyncService::class)->processDue()['pending']);
         $this->assertStringNotContainsString('sensitive-template-response', $task->fresh()->toJson());
+    }
+
+    public function test_legacy_template_and_empty_destination_copy_as_normal_access_only(): void
+    {
+        [$person, , , $task] = $this->setupTransfer();
+        [$source, $target] = $this->mockClients($person);
+        $legacy = $this->templates();
+        $legacy['FingerPrintInfo']['FingerPrintList'][0]['fingerType'] = 'dismissingFP';
+        $source->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->andReturn($legacy);
+        $target->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->twice()
+            ->andReturn(['FingerPrintInfo' => ['status' => 'NoFP']], $this->templates());
+        $target->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrint/SetUp', \Mockery::on(fn ($payload) => $payload['FingerPrintCfg']['fingerType'] === 'normalFP'))
+            ->once()->andReturn(['FingerPrintStatus' => ['StatusList' => [['cardReaderRecvStatus' => 1]]]]);
+        $this->assertSame(1, app(FingerprintSyncService::class)->processDue()['confirmed']);
+        $this->assertSame([5], $task->fresh()->confirmed_slots);
+    }
+
+    public function test_no_fingerprint_source_is_reported_without_writing_destination(): void
+    {
+        [$person, , , $task] = $this->setupTransfer();
+        [$source, $target] = $this->mockClients($person);
+        $source->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->andReturn(['FingerPrintInfo' => ['status' => 'NoFP']]);
+        $target->shouldNotReceive('post')->with('/ISAPI/AccessControl/FingerPrint/SetUp', \Mockery::any());
+        $this->assertSame(1, app(FingerprintSyncService::class)->processDue()['pending']);
+        $this->assertStringContainsString('No exportable fingerprint', $task->fresh()->message);
+    }
+
+    public function test_existing_same_fingerprint_in_another_slot_is_confirmed_without_a_write(): void
+    {
+        [$person, , , $task] = $this->setupTransfer();
+        [$source, $target] = $this->mockClients($person);
+        $source->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->andReturn($this->templates());
+        $existing = $this->templates();
+        $existing['FingerPrintInfo']['FingerPrintList'][0]['fingerPrintID'] = 3;
+        $target->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->andReturn($existing);
+        $target->shouldNotReceive('post')->with('/ISAPI/AccessControl/FingerPrint/SetUp', \Mockery::any());
+        $this->assertSame(1, app(FingerprintSyncService::class)->processDue()['confirmed']);
+        $this->assertSame([3], $task->fresh()->confirmed_slots);
+    }
+
+    public function test_full_destination_keeps_every_existing_slot(): void
+    {
+        [$person, , , $task] = $this->setupTransfer();
+        [$source, $target] = $this->mockClients($person);
+        $source->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->andReturn($this->templates());
+        $full = ['FingerPrintInfo' => ['FingerPrintList' => array_map(fn ($slot) => ['fingerPrintID' => $slot, 'fingerType' => 'normalFP', 'fingerData' => base64_encode('existing-'.$slot)], range(1, 10))]];
+        $target->shouldReceive('post')->with('/ISAPI/AccessControl/FingerPrintUpload', \Mockery::any())->andReturn($full);
+        $target->shouldNotReceive('post')->with('/ISAPI/AccessControl/FingerPrint/SetUp', \Mockery::any());
+        $this->assertSame(1, app(FingerprintSyncService::class)->processDue()['pending']);
+        $this->assertStringContainsString('All destination fingerprint slots are occupied', $task->fresh()->message);
     }
 }
