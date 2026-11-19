@@ -7,6 +7,7 @@ use App\Models\FingerprintSync;
 use App\Models\Personnel;
 use App\Models\Terminal;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Shaykhnazar\HikvisionIsapi\Client\HikvisionClient;
 
 class FingerprintSyncService
@@ -32,6 +33,12 @@ class FingerprintSyncService
     }
 
     public function processDue(int $limit = 20): array
+    {
+        return Cache::lock('fingerprint-sync-batch', 600)->get(fn () => $this->runBatch($limit))
+            ?: ['confirmed' => 0, 'pending' => 0, 'cancelled' => 0];
+    }
+
+    private function runBatch(int $limit): array
     {
         $counts = ['confirmed' => 0, 'pending' => 0, 'cancelled' => 0];
         $deadline = microtime(true) + 45;
@@ -68,7 +75,7 @@ class FingerprintSyncService
         if (! $person || ! $person->isActive() || ! $target || ! $source
             || ! $person->terminals()->whereKey($target->id)->wherePivot('access_allowed', true)->exists()
             || ! $person->effectiveDoors()->contains('terminal_id', $target->id)) {
-            $task->update(['status' => 'cancelled', 'message' => 'Access is no longer authorized. No fingerprint was copied.', 'next_attempt_at' => null]);
+            $this->persist($task, ['status' => 'cancelled', 'message' => 'Access is no longer authorized. No fingerprint was copied.', 'next_attempt_at' => null]);
 
             return;
         }
@@ -107,7 +114,7 @@ class FingerprintSyncService
                 $person->refresh();
                 if (! $person->isActive() || ! $person->effectiveDoors()->contains('terminal_id', $target->id)
                     || ! $person->terminals()->whereKey($target->id)->wherePivot('access_allowed', true)->exists()) {
-                    $task->update(['status' => 'cancelled', 'message' => 'Access changed during synchronization. Further copies were cancelled.', 'next_attempt_at' => null]);
+                    $this->persist($task, ['status' => 'cancelled', 'message' => 'Access changed during synchronization. Further copies were cancelled.', 'next_attempt_at' => null]);
 
                     return;
                 }
@@ -159,19 +166,34 @@ class FingerprintSyncService
                 $confirmedSlots[] = $targetSlot;
             }
             $slots = array_values(array_unique($confirmedSlots));
-            $task->update(['status' => 'confirmed', 'confirmed_slots' => $slots, 'confirmed_at' => now(),
-                'next_attempt_at' => null, 'message' => count($slots).' fingerprint slot(s) verified on the destination.']);
-            app(AccessAuditLogger::class)->log('fingerprints_synchronized', 'success',
-                'Existing fingerprints copied and read back on the authorized destination.',
-                ['source_terminal_id' => $source->id, 'slots' => $slots], personnel: $person, terminal: $target);
+            $this->persist($task, ['status' => 'confirmed', 'confirmed_slots' => $slots, 'confirmed_at' => now(),
+                'next_attempt_at' => null, 'message' => count($slots).' fingerprint slot(s) verified on the destination.'],
+                fn () => app(AccessAuditLogger::class)->log('fingerprints_synchronized', 'success',
+                    'Existing fingerprints copied and read back on the authorized destination.',
+                    ['source_terminal_id' => $source->id, 'slots' => $slots], personnel: $person, terminal: $target));
         } catch (\Throwable $error) {
             $attempts = min(65535, $task->attempts + 1);
             // Transport exceptions can include response bodies. Never persist them.
             $message = $error instanceof \DomainException ? $error->getMessage()
                 : 'The device could not confirm fingerprint synchronization. Check connectivity, authentication and identity holds.';
-            $task->update(['attempts' => $attempts, 'message' => $message,
+            $this->persist($task, ['attempts' => $attempts, 'message' => $message,
                 'next_attempt_at' => now()->addMinutes(min(30, 2 ** min(5, $attempts - 1)))]);
         }
+    }
+
+    /** Retry metadata writes only, never the hardware operation. */
+    private function persist(FingerprintSync $task, array $attributes, ?\Closure $after = null): void
+    {
+        if (isset($attributes['confirmed_slots'])) {
+            $attributes['confirmed_slots'] = json_encode($attributes['confirmed_slots'], JSON_THROW_ON_ERROR);
+        }
+        DB::transaction(function () use ($task, $attributes, $after): void {
+            // Write first so SQLite obtains its writer lock before any audit
+            // reads. Repeating this statement is safe after a busy rollback.
+            FingerprintSync::whereKey($task->id)->update($attributes);
+            $after?->__invoke();
+        }, 5);
+        $task->refresh();
     }
 
     /** Sensitive template material is held only in this worker's memory. */
