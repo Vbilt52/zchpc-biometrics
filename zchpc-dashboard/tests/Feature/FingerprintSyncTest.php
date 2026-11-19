@@ -9,6 +9,7 @@ use App\Services\DeviceClientFactory;
 use App\Services\FingerprintSyncService;
 use App\Services\PersonnelDeviceIdentity;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Shaykhnazar\HikvisionIsapi\Client\HikvisionClient;
 use Tests\TestCase;
 
@@ -163,5 +164,19 @@ class FingerprintSyncTest extends TestCase
         $target->shouldNotReceive('post')->with('/ISAPI/AccessControl/FingerPrint/SetUp', \Mockery::any());
         $this->assertSame(1, app(FingerprintSyncService::class)->processDue()['pending']);
         $this->assertStringContainsString('All destination fingerprint slots are occupied', $task->fresh()->message);
+    }
+
+    public function test_another_batch_defers_without_touching_the_queued_request(): void
+    {
+        [, , , $task] = $this->setupTransfer();
+        $lock = Cache::lock('fingerprint-sync-batch', 600);
+        $this->assertTrue($lock->get());
+        try {
+            $this->assertSame(['confirmed' => 0, 'pending' => 0, 'cancelled' => 0], app(FingerprintSyncService::class)->processDue());
+            $this->assertSame(0, $task->fresh()->attempts);
+            $this->assertSame('pending', $task->fresh()->status);
+        } finally {
+            $lock->release();
+        }
     }
 }
