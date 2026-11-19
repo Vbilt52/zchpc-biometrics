@@ -10,6 +10,8 @@
 @php
     $tz = config('attendance.timezone');
     $fingerprints = $personnel->confirmedFingerprints();
+    $observedFingerprints = $personnel->fingerprintInventories->sortBy('terminal_id')->values();
+    $observedSlotCount = $observedFingerprints->sum(fn ($inventory) => count($inventory->slotNumbers()));
     $pending = $personnel->pendingSyncs;
     $canManage = auth()->user()->can('access.manage');
 @endphp
@@ -31,8 +33,8 @@
                 <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem;">
                     <span class="badge badge-{{ $personnel->accessStateTone() === 'muted' ? 'muted' : $personnel->accessStateTone() }}">{{ $personnel->accessStateLabel() }}</span>
                     <span class="badge {{ $personnel->roleBadgeClass() }}">{{ $personnel->roleLabel() }}</span>
-                    @if($fingerprints->isNotEmpty())
-                        <span class="badge badge-success"><i class="fa-solid fa-fingerprint"></i> {{ $fingerprints->count() }} finger(s)</span>
+                    @if($observedSlotCount > 0)
+                        <span class="badge badge-success"><i class="fa-solid fa-fingerprint"></i> {{ $observedSlotCount }} enrolled</span>
                     @else
                         <span class="badge badge-muted">No fingerprint</span>
                     @endif
@@ -129,22 +131,25 @@
             <a href="{{ route('access.users.enroll', $personnel) }}" class="btn btn-outline" style="padding:.3rem .6rem;font-size:.75rem;">Manage</a>
         </div>
 
-        @forelse($fingerprints as $fingerprint)
+        @forelse($observedFingerprints as $inventory)
             <div style="border-bottom:1px solid var(--zchpc-border);padding:.55rem 0;">
                 <div style="display:flex;justify-content:space-between;gap:.5rem;">
-                    <span style="font-size:.86rem;"><i class="fa-solid fa-fingerprint" style="color:var(--success);"></i> {{ $fingerprint->fingerLabelText() }}</span>
-                    <span class="badge badge-success">Confirmed</span>
+                    <span style="font-size:.86rem;"><i class="fa-solid fa-server" style="color:var(--zchpc-primary);"></i> {{ $inventory->terminal?->name ?? 'Terminal' }}</span>
+                    @if($inventory->slotNumbers() !== [])
+                        <span class="badge badge-success">{{ count($inventory->slotNumbers()) }} enrolled</span>
+                    @else
+                        <span class="badge badge-muted">None enrolled</span>
+                    @endif
                 </div>
-                <div class="hint">{{ $fingerprint->terminal_name }} · {{ $fingerprint->finished_at?->format('d M Y H:i') }}</div>
+                <div class="hint">Slots: {{ $inventory->slotNumbers() !== [] ? '#'.implode(', #', $inventory->slotNumbers()) : '—' }} · Checked {{ $inventory->checked_at?->timezone($tz)->format('d M Y H:i') ?? '—' }}</div>
             </div>
         @empty
-            <p class="hint">No confirmed fingerprint. Access currently depends on other credentials or administrator decisions.</p>
+            <p class="hint">Fingerprint status has not been checked on an online terminal yet.</p>
         @endforelse
 
         <p class="hint" style="margin-top:.75rem;">
-            Fingerprint templates stay on the terminal. This application stores only the device verdict and slot number.
-            A template is not copied between devices: enroll again on every other terminal where the person needs
-            fingerprint access. Door permissions are independent and can be synchronized.
+            Fingerprint templates stay on the terminal. This application stores only verified slot numbers and check times.
+            Door access remains independent of fingerprint enrollment.
         </p>
     </div>
 

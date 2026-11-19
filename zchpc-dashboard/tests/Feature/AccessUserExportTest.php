@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AccessGroup;
 use App\Models\Door;
 use App\Models\FingerprintEnrollment;
+use App\Models\FingerprintInventory;
 use App\Models\Personnel;
 use App\Models\Terminal;
 use App\Models\User;
@@ -106,6 +107,27 @@ class AccessUserExportTest extends TestCase
         $this->assertStringContainsString('HPC001', $content);
         $this->assertDatabaseHas('personnel', ['employee_no' => '00987']);
         $this->assertStringContainsString("'+263771234567", $content);
+    }
+
+    public function test_access_directory_shows_terminal_verified_fingerprint_slots(): void
+    {
+        FingerprintInventory::create([
+            'personnel_id' => $this->person->id,
+            'terminal_id' => $this->terminal->id,
+            'device_employee_no' => $this->person->employee_no,
+            'slots' => [1, 6],
+            'checked_at' => now(),
+        ]);
+
+        $this->actingAs($this->admin)->get(route('access.index'))
+            ->assertOk()
+            ->assertSee('2 slots')
+            ->assertSee('Main Gate Controller');
+
+        $this->actingAs($this->admin)->get(route('access.users.show', $this->person))
+            ->assertOk()
+            ->assertSee('Slots: #1, #6')
+            ->assertSee('Main Gate Controller');
     }
 
     public function test_admin_can_download_pdf_report(): void

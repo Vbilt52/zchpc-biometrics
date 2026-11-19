@@ -13,6 +13,8 @@ Artisan::command('inspire', function () {
 // resubmit every user record manually.
 Schedule::command('terminals:sync-pending')->everyMinute()->withoutOverlapping(30)->runInBackground();
 Schedule::command('fingerprints:sync-pending')->everyMinute()->withoutOverlapping(10)->runInBackground();
+// Reads slot numbers only; templates remain on the physical terminals.
+Schedule::command('fingerprints:inventory')->everySixHours()->withoutOverlapping(60)->runInBackground();
 
 // Per-door grants with an expiry are excluded from the controller plan as
 // soon as they lapse; this removes the local grant and queues the revocation.

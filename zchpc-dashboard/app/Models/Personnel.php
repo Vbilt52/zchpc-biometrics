@@ -114,6 +114,12 @@ class Personnel extends Model
         return $this->hasMany(FingerprintEnrollment::class);
     }
 
+    /** Verified fingerprint slot metadata read from the terminals. */
+    public function fingerprintInventories(): HasMany
+    {
+        return $this->hasMany(FingerprintInventory::class);
+    }
+
     public function syncEvents(): HasMany
     {
         return $this->hasMany(DeviceSyncEvent::class);

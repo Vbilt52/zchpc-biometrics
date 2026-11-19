@@ -46,7 +46,7 @@ class PersonnelController extends Controller
 
     public function index(Request $request): View|RedirectResponse
     {
-        $query = Personnel::with(['terminals', 'accessGroup']);
+        $query = Personnel::with(['terminals', 'accessGroup', 'fingerprintInventories.terminal']);
         if ($terminalId = $request->integer('terminal_id')) {
             $query->whereHas('terminals', fn ($query) => $query->where('terminals.id', $terminalId)->where('personnel_terminals.access_allowed', true));
         }

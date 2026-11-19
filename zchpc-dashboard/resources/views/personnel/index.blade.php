@@ -228,6 +228,7 @@ function downloadPersonnelPDF() {
                     <th>Department</th>
                     <th>Access Window</th>
                     <th>Status</th>
+                    <th>Fingerprints</th>
                     <th>Device Access</th>
                     <th>Actions</th>
                 </tr>
@@ -301,6 +302,22 @@ function downloadPersonnelPDF() {
                         @endif
                     </td>
                     <td>
+                        @php
+                            $fingerprintSlots = $person->fingerprintInventories->sum(fn ($inventory) => count($inventory->slotNumbers()));
+                            $fingerprintDoors = $person->fingerprintInventories->filter(fn ($inventory) => $inventory->slotNumbers() !== []);
+                        @endphp
+                        @if($fingerprintSlots > 0)
+                            <span class="badge badge-success"><i class="fa-solid fa-fingerprint"></i> {{ $fingerprintSlots }} enrolled</span>
+                            <div style="font-size:.72rem;color:var(--zchpc-text-muted);margin-top:.25rem;">
+                                {{ $fingerprintDoors->map(fn ($inventory) => $inventory->terminal?->name)->filter()->implode(', ') }}
+                            </div>
+                        @elseif($person->fingerprintInventories->isNotEmpty())
+                            <span class="badge badge-muted">None enrolled</span>
+                        @else
+                            <span class="badge badge-muted">Not checked yet</span>
+                        @endif
+                    </td>
+                    <td>
                         <strong>{{ $person->terminals->where('pivot.access_allowed', true)->count() }} / {{ $terminals->count() }} assigned</strong>
                         @foreach($terminals as $device)
                             @php
@@ -335,7 +352,7 @@ function downloadPersonnelPDF() {
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="{{ auth()->user()->can('personnel.deactivate') ? 9 : 8 }}" style="text-align:center;padding:3.5rem;color:var(--zchpc-text-muted);">
+                    <td colspan="{{ auth()->user()->can('personnel.deactivate') ? 10 : 9 }}" style="text-align:center;padding:3.5rem;color:var(--zchpc-text-muted);">
                         <i class="fa-solid fa-users" style="font-size:2.5rem;display:block;margin-bottom:1rem;opacity:0.2;"></i>
                         <div style="font-size:1rem;font-weight:500;margin-bottom:0.5rem;">No personnel records yet</div>
                         <div style="font-size:0.875rem;">Use <strong>Import from Device</strong> to pull existing users, or <strong>Add Person</strong> to create a new one.</div>
